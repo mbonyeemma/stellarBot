@@ -80,7 +80,7 @@ function () {
               quoteAssetBalance = _context.sent;
               console.log("Asset to buy: ".concat(assetToBuy.code, ", Asset price: ").concat(assetPrice, ", Quote asset balance: ").concat(quoteAssetBalance));
               console.log("step ", 2);
-              amount = (quoteAssetBalance * 0.1 / assetPrice).toFixed(7);
+              amount = (quoteAssetBalance * 0.4 / assetPrice).toFixed(7);
               console.log("amount", amount);
               _context.next = 25;
               return regeneratorRuntime.awrap(execution.placeBuyOrder(assetToBuy, amount, assetPrice));
@@ -189,42 +189,41 @@ function () {
 
             case 7:
               orderbook = _context4.sent;
-              console.log("DATA HERE::::", orderbook);
-              _context4.next = 11;
+              _context4.next = 10;
               return regeneratorRuntime.awrap(execution.getAssetBalance(assetToSell));
 
-            case 11:
+            case 10:
               assetBalance = _context4.sent;
-              _context4.next = 14;
+              _context4.next = 13;
               return regeneratorRuntime.awrap(this.calculateSellPrice(orderbook, assetBalance, null, null));
 
-            case 14:
+            case 13:
               sellPrice = _context4.sent;
               console.log("sellPrice", sellPrice);
               sellAmount = assetBalance;
-              _context4.next = 19;
+              _context4.next = 18;
               return regeneratorRuntime.awrap(execution.placeSellOrder(assetToSell, sellAmount, sellPrice, 0));
 
-            case 19:
+            case 18:
               sellResult = _context4.sent;
               console.log("Sell order placed at ".concat(sellPrice, "."), sellResult);
-              _context4.next = 26;
+              _context4.next = 25;
               break;
 
-            case 23:
-              _context4.prev = 23;
+            case 22:
+              _context4.prev = 22;
               _context4.t0 = _context4["catch"](0);
               console.log("ERRO 2", _context4.t0);
 
-            case 26:
+            case 25:
               return _context4.abrupt("return", true);
 
-            case 27:
+            case 26:
             case "end":
               return _context4.stop();
           }
         }
-      }, null, this, [[0, 23]]);
+      }, null, this, [[0, 22]]);
     }
   }, {
     key: "monitorBuyOrderAndPlaceSellOrder",
@@ -326,66 +325,69 @@ function () {
               accumulatedAmount = 0;
               topBuyPrice = Price;
               topBuyAmount = amount;
+              console.log("amount", amount);
+              console.log("BIDS", orderbook.asks);
               i = 0;
 
-            case 4:
-              if (!(i < orderbook.bids.length)) {
-                _context7.next = 14;
+            case 6:
+              if (!(i < orderbook.asks.length)) {
+                _context7.next = 17;
                 break;
               }
 
-              buy = orderbook.bids[i];
+              buy = orderbook.asks[i];
               accumulatedAmount += parseFloat(buy.amount);
+              console.log("accumulatedAmount", accumulatedAmount);
 
               if (!(accumulatedAmount >= amount * 0.3)) {
-                _context7.next = 11;
+                _context7.next = 14;
                 break;
               }
 
               topBuyPrice = parseFloat(buy.price);
               topBuyAmount = accumulatedAmount;
-              return _context7.abrupt("break", 14);
-
-            case 11:
-              i++;
-              _context7.next = 4;
-              break;
+              return _context7.abrupt("break", 17);
 
             case 14:
+              i++;
+              _context7.next = 6;
+              break;
+
+            case 17:
               if (!(!topBuyPrice || !topBuyAmount)) {
-                _context7.next = 16;
+                _context7.next = 19;
                 break;
               }
 
-              return _context7.abrupt("return", null);
+              return _context7.abrupt("return", 0.1);
 
-            case 16:
+            case 19:
               // Find the highest ask price where the amount is more than 30% of the total asks
               askPrice = 0;
               _i = 0;
 
-            case 18:
+            case 21:
               if (!(_i < orderbook.asks.length)) {
-                _context7.next = 26;
+                _context7.next = 29;
                 break;
               }
 
               ask = orderbook.asks[_i];
 
               if (!(parseFloat(ask.amount) >= topBuyAmount)) {
-                _context7.next = 23;
+                _context7.next = 26;
                 break;
               }
 
               askPrice = parseFloat(ask.price);
-              return _context7.abrupt("break", 26);
-
-            case 23:
-              _i++;
-              _context7.next = 18;
-              break;
+              return _context7.abrupt("break", 29);
 
             case 26:
+              _i++;
+              _context7.next = 21;
+              break;
+
+            case 29:
               // If the ask price is 0, use the second lowest ask price
               if (askPrice === 0 && orderbook.asks.length >= 2) {
                 askPrice = parseFloat(orderbook.asks[1].price);
@@ -394,9 +396,9 @@ function () {
               option2Price = askPrice * 1.03;
               console.log("option1Price", topBuyPrice, "option2Price", option2Price);
               sellPrice = Math.min(topBuyPrice, option2Price);
-              return _context7.abrupt("return", sellPrice);
+              return _context7.abrupt("return", sellPrice - 0.0000002);
 
-            case 31:
+            case 34:
             case "end":
               return _context7.stop();
           }

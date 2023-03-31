@@ -25,7 +25,7 @@ export default class Trader {
     console.log(`Asset to buy: ${assetToBuy.code}, Asset price: ${assetPrice}, Quote asset balance: ${quoteAssetBalance}`);
     console.log("step ", 2)
 
-    const amount = ((quoteAssetBalance * 0.1) / assetPrice).toFixed(7)
+    const amount = ((quoteAssetBalance * 0.4) / assetPrice).toFixed(7)
     console.log("amount", amount)
 
     const result = await execution.placeBuyOrder(assetToBuy, amount, assetPrice);
@@ -79,7 +79,6 @@ export default class Trader {
       const baseAsset = execution.createAsset("XLM", "")
 
       const orderbook = await server.orderbook(assetToSell,baseAsset).call();
-      console.log("DATA HERE::::", orderbook )
 
       const assetBalance = await execution.getAssetBalance(assetToSell);
       const sellPrice = await this.calculateSellPrice(orderbook, assetBalance, null, null);
@@ -145,11 +144,17 @@ export default class Trader {
     let accumulatedAmount = 0;
     let topBuyPrice = Price;
     let topBuyAmount = amount;
+    console.log("amount",amount)
+
+    console.log("BIDS",orderbook.asks)
   
-    for (let i = 0; i < orderbook.bids.length; i++) {
-      const buy = orderbook.bids[i];
+    for (let i = 0; i < orderbook.asks.length; i++) {
+      const buy = orderbook.asks[i];
       accumulatedAmount += parseFloat(buy.amount);
   
+      console.log("accumulatedAmount",accumulatedAmount)
+
+
       if (accumulatedAmount >= amount * 0.3) {
         topBuyPrice = parseFloat(buy.price);
         topBuyAmount = accumulatedAmount;
@@ -158,7 +163,7 @@ export default class Trader {
     }
   
     if (!topBuyPrice || !topBuyAmount) {
-      return null;
+      return 0.1;
     }
   
     // Find the highest ask price where the amount is more than 30% of the total asks
@@ -180,7 +185,7 @@ export default class Trader {
     console.log("option1Price", topBuyPrice, "option2Price", option2Price)
     const sellPrice = Math.min(topBuyPrice, option2Price);
   
-    return sellPrice;
+    return (sellPrice - 0.0000002)
   }
   
 

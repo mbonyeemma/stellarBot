@@ -77,7 +77,7 @@ export default class CronService {
 
   async sellAssets() {
     console.log("Checking the saved orders...");
-    cron.schedule('*/30 * * * * *', this.sellAssetOnMarket, {
+    cron.schedule('*/2 * * * *', this.sellAssetOnMarket, {
       scheduled: true
     });
   }
