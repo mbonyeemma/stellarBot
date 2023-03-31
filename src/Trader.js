@@ -178,7 +178,7 @@ export default class Trader {
   
     const option2Price = askPrice * 1.03;
     console.log("option1Price", topBuyPrice, "option2Price", option2Price)
-    const sellPrice = Math.max(topBuyPrice, option2Price);
+    const sellPrice = Math.min(topBuyPrice, option2Price);
   
     return sellPrice;
   }
