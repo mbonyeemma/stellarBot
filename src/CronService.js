@@ -5,7 +5,7 @@ import redisClient from './redisClient';
 import * as helper from './Helper.js'
 import Trader from './Trader.js'
 import StellarSdk from 'stellar-sdk';
-import Execution from './execution.js';
+import Execution from './Execution.js';
 import fetch from 'node-fetch';
 import { Asset, Server } from 'stellar-sdk';
 
