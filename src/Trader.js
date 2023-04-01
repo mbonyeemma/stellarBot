@@ -8,15 +8,14 @@ const execution = new Execution();
 export default class Trader {
 
   async init(assetToBuy) {
-    console.log("step1")
+    console.log("started the init function with asset,", assetToBuy)
     const publicKey = config.publicKey;
     const secretKey = config.secretKey;
-    const keypair = Keypair.fromSecret(secretKey);
-
     const account = await server.loadAccount(publicKey);
+
     if (!(await this.hasTrustLine(account, assetToBuy))) {
       console.log(`Adding trustline for asset: ${assetToBuy.code}`);
-      await this.addTrustLine(server, account, assetToBuy, keypair);
+      await this.addTrustLine(assetToBuy, "100000000");
     }
 
     const assetPrice = await execution.getAssetPrice(assetToBuy);
@@ -52,41 +51,86 @@ export default class Trader {
     );
   }
 
-  async addTrustLine(server, account, asset, keypair) {
-    const assetObj = new StellarSdk.Asset(asset.code, asset.issuer);
-    const trustlineOperation = StellarSdk.Operation.changeTrust({
-      asset: assetObj,
-      limit: '100000000', // Set a limit for the trust line
-    });
+  async addTrustLine(asset, limit) {
+    try {
+      const publicKey = config.publicKey;
+      const secretKey = config.secretKey;
+      const account = await server.loadAccount(publicKey);
 
-    const transaction = new StellarSdk.TransactionBuilder(account, {
-      fee: StellarSdk.BASE_FEE,
-      networkPassphrase: StellarSdk.Networks.PUBLIC,
-    })
-      .addOperation(trustlineOperation)
-      .setTimeout(180)
-      .build();
+      const keypair = Keypair.fromSecret(secretKey);
 
-    transaction.sign(keypair);
-    const result = await server.submitTransaction(transaction);
-    return result;
+      const assetObj = new StellarSdk.Asset(asset.code, asset.issuer);
+      const trustlineOperation = StellarSdk.Operation.changeTrust({
+        asset: assetObj,
+        limit: limit, // Set a limit for the trust line
+      });
+
+      const transaction = new StellarSdk.TransactionBuilder(account, {
+        fee: StellarSdk.BASE_FEE,
+        networkPassphrase: StellarSdk.Networks.PUBLIC,
+      })
+        .addOperation(trustlineOperation)
+        .setTimeout(180)
+        .build();
+
+      transaction.sign(keypair);
+      const result = await server.submitTransaction(transaction);
+      return result;
+    } catch (error) {
+      return false
+    }
   }
 
+
+
+  async removeAsset(assetToSell) {
+    try {
+      const isDeleted = await execution.deleteAllSellOffersForAsset(assetToSell)
+      const assetBalance = await execution.getAssetBalance(assetToSell);
+      const sellPrice = "0.0000001"
+      let sellResult = true;
+      if (assetBalance > 0) {
+        const sellResult = await execution.StrictSendTransaction(assetToSell, assetBalance);
+        console.log(`Strictr send placed at ${sellPrice}.`, sellResult);
+        if (sellResult !== false) {
+          sellResult = true
+        } else {
+          sellResult = false
+        }
+
+      }
+
+      if (sellResult) {
+        await this.addTrustLine(assetToSell, "0");
+        console.log('Asset Removed', assetToSell);
+      }
+
+    } catch (err) {
+      console.log("ERROR REMOVING ASSET", err)
+    }
+    return true;
+  }
 
   async sellAssetOnMarket(assetToSell) {
     try {
       const isDeleted = await execution.deleteAllSellOffersForAsset(assetToSell)
       const baseAsset = execution.createAsset("XLM", "")
 
-      const orderbook = await server.orderbook(assetToSell,baseAsset).call();
+      const orderbook = await server.orderbook(assetToSell, baseAsset).call();
 
       const assetBalance = await execution.getAssetBalance(assetToSell);
-      const sellPrice = await this.calculateSellPrice(orderbook, assetBalance, null, null);
+      let sellPrice = await this.calculateSellPrice(orderbook, assetBalance, null, null);
       console.log("sellPrice", sellPrice)
       const sellAmount = assetBalance;
+      sellPrice = sellPrice.toFixed(7)
+      if (sellPrice > 0) {
+        const sellResult = await execution.placeSellOrder(assetToSell, sellAmount, sellPrice, 0);
+        console.log(`Sell order placed at ${sellPrice}.`, sellResult);
+      } else {
+        console.log(`Sell order NOT placed at ${sellPrice}.`);
+      }
 
-      const sellResult = await execution.placeSellOrder(assetToSell, sellAmount, sellPrice, 0);
-      console.log(`Sell order placed at ${sellPrice}.`, sellResult);
+
     } catch (err) {
       console.log("ERRO 2", err)
 
@@ -144,15 +188,11 @@ export default class Trader {
     let accumulatedAmount = 0;
     let topBuyPrice = Price;
     let topBuyAmount = amount;
-    console.log("amount",amount)
-
-    console.log("BIDS",orderbook.asks)
-  
     for (let i = 0; i < orderbook.asks.length; i++) {
       const buy = orderbook.asks[i];
       accumulatedAmount += parseFloat(buy.amount);
-  
-      console.log("accumulatedAmount",accumulatedAmount)
+
+      console.log("accumulatedAmount", accumulatedAmount)
 
 
       if (accumulatedAmount >= amount * 0.3) {
@@ -161,11 +201,11 @@ export default class Trader {
         break;
       }
     }
-  
+
     if (!topBuyPrice || !topBuyAmount) {
       return 0.1;
     }
-  
+
     // Find the highest ask price where the amount is more than 30% of the total asks
     let askPrice = 0;
     for (let i = 0; i < orderbook.asks.length; i++) {
@@ -175,19 +215,19 @@ export default class Trader {
         break;
       }
     }
-  
+
     // If the ask price is 0, use the second lowest ask price
     if (askPrice === 0 && orderbook.asks.length >= 2) {
       askPrice = parseFloat(orderbook.asks[1].price);
     }
-  
+
     const option2Price = askPrice * 1.03;
     console.log("option1Price", topBuyPrice, "option2Price", option2Price)
     const sellPrice = Math.min(topBuyPrice, option2Price);
-  
+
     return (sellPrice - 0.0000002)
   }
-  
+
 
 
 }

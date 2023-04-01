@@ -42,6 +42,7 @@ var publicKey = 'GANDGDF7ZHF7RVXMI53PUSCMVWEFANGTZ4RLEH2DGPDFI5BGWYOLAXRR';
 var url = "".concat(serverUrl, "/assets?asset_issuer=").concat(publicKey, "&limit=200");
 var execution = new _Execution["default"]();
 var trader = new _Trader["default"]();
+var isInit = true;
 
 var CronService =
 /*#__PURE__*/
@@ -51,104 +52,65 @@ function () {
 
     this.assets = new _AssetLookup["default"]();
     this.init();
-    this.placeInitialOrder();
-    this.offersCron();
+    this.placeInitialOrder(); //this.offersCron();
+
     this.sellAssets();
     this.checkCoinLoop();
-  }
+  } // EVERY MINUTE
+
 
   _createClass(CronService, [{
     key: "placeInitialOrder",
     value: function placeInitialOrder() {
-      var _this = this;
-
-      var bestAssetsJSON, bestAssets, asset, assetObj;
       return regeneratorRuntime.async(function placeInitialOrder$(_context) {
         while (1) {
           switch (_context.prev = _context.next) {
             case 0:
-              _context.next = 2;
-              return regeneratorRuntime.awrap(_redisClient["default"].get(_config.redis.bestAssetsKey));
+              console.log("BUYING Assets every MINUTE");
+
+              _nodeCron["default"].schedule('*/5 * * * *', this.buyAssets, {
+                scheduled: true
+              });
 
             case 2:
-              bestAssetsJSON = _context.sent;
-
-              if (bestAssetsJSON) {
-                _context.next = 7;
-                break;
-              }
-
-              console.log("Waiting for best assets data to become available...");
-              setTimeout(function () {
-                console.log('10 seconds have passed!');
-
-                _this.placeInitialOrder();
-              }, 10000);
-              return _context.abrupt("return");
-
-            case 7:
-              bestAssets = JSON.parse(bestAssetsJSON);
-              asset = bestAssets[0];
-              console.log("bestAsset", asset);
-              assetObj = new _stellarSdk["default"].Asset(asset.code, asset.issuer);
-              _context.next = 13;
-              return regeneratorRuntime.awrap(trader.init(assetObj));
-
-            case 13:
             case "end":
               return _context.stop();
           }
         }
-      });
-    }
+      }, null, this);
+    } // EVERY 2 MINUTES
+
   }, {
-    key: "init",
-    value: function init() {
-      var bestAssetsJSON;
-      return regeneratorRuntime.async(function init$(_context2) {
+    key: "sellAssets",
+    value: function sellAssets() {
+      return regeneratorRuntime.async(function sellAssets$(_context2) {
         while (1) {
           switch (_context2.prev = _context2.next) {
             case 0:
-              console.log("Starting cron service to update best assets..."); // Check if Redis has data
+              console.log("sellAssets every 2 minutes...");
 
-              _context2.next = 3;
-              return regeneratorRuntime.awrap(_redisClient["default"].get(_config.redis.bestAssetsKey));
-
-            case 3:
-              bestAssetsJSON = _context2.sent;
-              console.log("bestAssetsJSON", bestAssetsJSON);
-
-              if (!(!bestAssetsJSON || bestAssetsJSON.length < 3)) {
-                _context2.next = 9;
-                break;
-              }
-
-              console.log("Best assets data not found in Redis. Updating immediately...");
-              _context2.next = 9;
-              return regeneratorRuntime.awrap(this.updateBestAssets());
-
-            case 9:
-              _nodeCron["default"].schedule('0 0 * * *', this.updateBestAssets, {
+              _nodeCron["default"].schedule('*/2 * * * *', this.sellAssetOnMarket, {
                 scheduled: true
               });
 
-            case 10:
+            case 2:
             case "end":
               return _context2.stop();
           }
         }
       }, null, this);
-    }
+    } // EVERY 1 HOUR
+
   }, {
-    key: "offersCron",
-    value: function offersCron() {
-      return regeneratorRuntime.async(function offersCron$(_context3) {
+    key: "checkCoinLoop",
+    value: function checkCoinLoop() {
+      return regeneratorRuntime.async(function checkCoinLoop$(_context3) {
         while (1) {
           switch (_context3.prev = _context3.next) {
             case 0:
-              console.log("Checking the saved orders...");
+              console.log("Checking the coins every hour"); // THIS IS TO CHECK THE ISSUER ACCOUNT AND SEND EMMA AN SMS
 
-              _nodeCron["default"].schedule('*/30 * * * * *', this.offersWorker, {
+              _nodeCron["default"].schedule('*/30 * * * *', this.trackClicCoins, {
                 scheduled: true
               });
 
@@ -158,17 +120,18 @@ function () {
           }
         }
       }, null, this);
-    }
+    } // EVERY 30 SECONDS. NOT USED FOR NOW
+
   }, {
-    key: "checkCoinLoop",
-    value: function checkCoinLoop() {
-      return regeneratorRuntime.async(function checkCoinLoop$(_context4) {
+    key: "offersCron",
+    value: function offersCron() {
+      return regeneratorRuntime.async(function offersCron$(_context4) {
         while (1) {
           switch (_context4.prev = _context4.next) {
             case 0:
-              console.log("Checking the saved orders...");
+              console.log("offersWorker, every 30 secods");
 
-              _nodeCron["default"].schedule('0 * * * *', this.checkCoins, {
+              _nodeCron["default"].schedule('*/30 * * * * *', this.offersWorker, {
                 scheduled: true
               });
 
@@ -180,44 +143,139 @@ function () {
       }, null, this);
     }
   }, {
-    key: "sellAssets",
-    value: function sellAssets() {
-      return regeneratorRuntime.async(function sellAssets$(_context5) {
-        while (1) {
-          switch (_context5.prev = _context5.next) {
-            case 0:
-              console.log("Checking the saved orders...");
+    key: "buyAssets",
+    value: function buyAssets() {
+      var _this = this;
 
-              _nodeCron["default"].schedule('*/2 * * * *', this.sellAssetOnMarket, {
-                scheduled: true
-              });
-
-            case 2:
-            case "end":
-              return _context5.stop();
-          }
-        }
-      }, null, this);
-    }
-  }, {
-    key: "sellAssetOnMarket",
-    value: function sellAssetOnMarket() {
-      var balances, i, balance, asset_type, asset, issuer, sellAsset, assetBalance;
-      return regeneratorRuntime.async(function sellAssetOnMarket$(_context6) {
+      var bestAssetsJSON, bestAssets;
+      return regeneratorRuntime.async(function buyAssets$(_context6) {
         while (1) {
           switch (_context6.prev = _context6.next) {
             case 0:
               _context6.next = 2;
+              return regeneratorRuntime.awrap(_redisClient["default"].get(_config.redis.bestAssetsKey));
+
+            case 2:
+              bestAssetsJSON = _context6.sent;
+
+              if (bestAssetsJSON) {
+                bestAssets = JSON.parse(bestAssetsJSON);
+                bestAssets.forEach(function _callee(element) {
+                  var asset, assetObj;
+                  return regeneratorRuntime.async(function _callee$(_context5) {
+                    while (1) {
+                      switch (_context5.prev = _context5.next) {
+                        case 0:
+                          asset = element;
+                          console.log("bestAsset", asset);
+                          assetObj = new _stellarSdk["default"].Asset(asset.code, asset.issuer);
+                          _context5.next = 5;
+                          return regeneratorRuntime.awrap(trader.init(assetObj));
+
+                        case 5:
+                          _this.sleep(2);
+
+                        case 6:
+                        case "end":
+                          return _context5.stop();
+                      }
+                    }
+                  });
+                });
+              }
+
+            case 4:
+            case "end":
+              return _context6.stop();
+          }
+        }
+      });
+    }
+  }, {
+    key: "init",
+    value: function init() {
+      var bestAssetsJSON;
+      return regeneratorRuntime.async(function init$(_context7) {
+        while (1) {
+          switch (_context7.prev = _context7.next) {
+            case 0:
+              _context7.prev = 0;
+              _context7.next = 3;
+              return regeneratorRuntime.awrap(_redisClient["default"].del(_config.redis.bestAssetsKey));
+
+            case 3:
+              isInit = false;
+              console.log("Starting cron service to update best assets...");
+              _context7.next = 7;
+              return regeneratorRuntime.awrap(_redisClient["default"].get(_config.redis.bestAssetsKey));
+
+            case 7:
+              bestAssetsJSON = _context7.sent;
+              console.log("bestAssetsJSON", bestAssetsJSON);
+
+              if (!(!bestAssetsJSON || bestAssetsJSON.length < 3)) {
+                _context7.next = 13;
+                break;
+              }
+
+              console.log("Best assets data not found in Redis. Updating immediately...");
+              _context7.next = 13;
+              return regeneratorRuntime.awrap(this.updateBestAssets());
+
+            case 13:
+              this.removeAssets(); // EVERY DAY
+
+              _nodeCron["default"].schedule('0 0 * * *', this.updateBestAssets, {
+                scheduled: true
+              });
+
+              _context7.next = 25;
+              break;
+
+            case 17:
+              _context7.prev = 17;
+              _context7.t0 = _context7["catch"](0);
+              console.log("REDIS ERROR", _context7.t0);
+
+              if (!isInit) {
+                _context7.next = 25;
+                break;
+              }
+
+              console.log("sleeping for 10 sec and try AGAIN");
+              _context7.next = 24;
+              return regeneratorRuntime.awrap(this.sleep(10000000));
+
+            case 24:
+              this.init();
+
+            case 25:
+            case "end":
+              return _context7.stop();
+          }
+        }
+      }, null, this, [[0, 17]]);
+    }
+  }, {
+    key: "removeAssets",
+    value: function removeAssets() {
+      var balances, AssetsToRemove, i, balance, asset_type, asset, issuer, sellAsset, assetBalance;
+      return regeneratorRuntime.async(function removeAssets$(_context8) {
+        while (1) {
+          switch (_context8.prev = _context8.next) {
+            case 0:
+              _context8.next = 2;
               return regeneratorRuntime.awrap(execution.getBalances());
 
             case 2:
-              balances = _context6.sent;
-              console.log("BALANCES ", balances);
+              balances = _context8.sent;
+              console.log("removeAssets ");
+              AssetsToRemove = [];
               i = 0;
 
-            case 5:
+            case 6:
               if (!(i < balances.length)) {
-                _context6.next = 20;
+                _context8.next = 22;
                 break;
               }
 
@@ -225,7 +283,7 @@ function () {
               asset_type = balance.asset_type;
 
               if (!(asset_type != 'native')) {
-                _context6.next = 17;
+                _context8.next = 19;
                 break;
               }
 
@@ -234,23 +292,103 @@ function () {
               sellAsset = execution.createAsset(asset, issuer);
               assetBalance = parseFloat(balance.balance);
 
-              if (!(assetBalance > 10)) {
-                _context6.next = 17;
+              if (!(assetBalance < 5)) {
+                _context8.next = 19;
                 break;
               }
 
-              console.log("sending Asset for ", sellAsset);
-              _context6.next = 17;
+              console.log("removing asset,  ", sellAsset);
+              _context8.next = 18;
+              return regeneratorRuntime.awrap(trader.removeAsset(sellAsset));
+
+            case 18:
+              console.log("asset remoed , sleeping for 2 sec  ");
+
+            case 19:
+              i++;
+              _context8.next = 6;
+              break;
+
+            case 22:
+              return _context8.abrupt("return", true);
+
+            case 23:
+            case "end":
+              return _context8.stop();
+          }
+        }
+      });
+    }
+  }, {
+    key: "sleep",
+    value: function sleep(ms) {
+      return regeneratorRuntime.async(function sleep$(_context9) {
+        while (1) {
+          switch (_context9.prev = _context9.next) {
+            case 0:
+              return _context9.abrupt("return", new Promise(function (resolve) {
+                return setTimeout(resolve, ms);
+              }));
+
+            case 1:
+            case "end":
+              return _context9.stop();
+          }
+        }
+      });
+    }
+  }, {
+    key: "sellAssetOnMarket",
+    value: function sellAssetOnMarket() {
+      var balances, i, balance, asset_type, asset, issuer, sellAsset, assetBalance;
+      return regeneratorRuntime.async(function sellAssetOnMarket$(_context10) {
+        while (1) {
+          switch (_context10.prev = _context10.next) {
+            case 0:
+              _context10.next = 2;
+              return regeneratorRuntime.awrap(execution.getBalances());
+
+            case 2:
+              balances = _context10.sent;
+              console.log("BALANCES ", balances);
+              i = 0;
+
+            case 5:
+              if (!(i < balances.length)) {
+                _context10.next = 20;
+                break;
+              }
+
+              balance = balances[i];
+              asset_type = balance.asset_type;
+
+              if (!(asset_type != 'native')) {
+                _context10.next = 17;
+                break;
+              }
+
+              asset = balance.asset_code;
+              issuer = balance.asset_issuer;
+              sellAsset = execution.createAsset(asset, issuer);
+              assetBalance = parseFloat(balance.balance);
+
+              if (!(assetBalance >= 5)) {
+                _context10.next = 17;
+                break;
+              }
+
+              console.log("selling ", sellAsset);
+              _context10.next = 17;
               return regeneratorRuntime.awrap(trader.sellAssetOnMarket(sellAsset));
 
             case 17:
               i++;
-              _context6.next = 5;
+              _context10.next = 5;
               break;
 
             case 20:
             case "end":
-              return _context6.stop();
+              return _context10.stop();
           }
         }
       });
@@ -259,41 +397,41 @@ function () {
     key: "offersWorker",
     value: function offersWorker() {
       var orders;
-      return regeneratorRuntime.async(function offersWorker$(_context8) {
+      return regeneratorRuntime.async(function offersWorker$(_context12) {
         while (1) {
-          switch (_context8.prev = _context8.next) {
+          switch (_context12.prev = _context12.next) {
             case 0:
-              _context8.next = 2;
+              _context12.next = 2;
               return regeneratorRuntime.awrap(helper.getAllRunningOrders());
 
             case 2:
-              orders = _context8.sent;
+              orders = _context12.sent;
               console.log("Orders", orders);
 
               if (orders !== undefined) {
-                orders.forEach(function _callee(order_id) {
+                orders.forEach(function _callee2(order_id) {
                   var orderInfo;
-                  return regeneratorRuntime.async(function _callee$(_context7) {
+                  return regeneratorRuntime.async(function _callee2$(_context11) {
                     while (1) {
-                      switch (_context7.prev = _context7.next) {
+                      switch (_context11.prev = _context11.next) {
                         case 0:
-                          _context7.next = 2;
+                          _context11.next = 2;
                           return regeneratorRuntime.awrap(helper.retrieveOrderDetails(order_id));
 
                         case 2:
-                          orderInfo = _context7.sent;
+                          orderInfo = _context11.sent;
 
                           if (!(orderInfo != undefined)) {
-                            _context7.next = 6;
+                            _context11.next = 6;
                             break;
                           }
 
-                          _context7.next = 6;
+                          _context11.next = 6;
                           return regeneratorRuntime.awrap(trader.monitorBuyOrderAndPlaceSellOrder(orderInfo.asset, orderInfo.order_id, orderInfo.price));
 
                         case 6:
                         case "end":
-                          return _context7.stop();
+                          return _context11.stop();
                       }
                     }
                   });
@@ -302,7 +440,7 @@ function () {
 
             case 5:
             case "end":
-              return _context8.stop();
+              return _context12.stop();
           }
         }
       });
@@ -311,36 +449,36 @@ function () {
     key: "updateBestAssets",
     value: function updateBestAssets() {
       var bestAssets;
-      return regeneratorRuntime.async(function updateBestAssets$(_context9) {
+      return regeneratorRuntime.async(function updateBestAssets$(_context13) {
         while (1) {
-          switch (_context9.prev = _context9.next) {
+          switch (_context13.prev = _context13.next) {
             case 0:
-              _context9.prev = 0;
-              _context9.next = 3;
+              _context13.prev = 0;
+              _context13.next = 3;
               return regeneratorRuntime.awrap(this.assets.getBestAssetsToTrade(5));
 
             case 3:
-              bestAssets = _context9.sent;
+              bestAssets = _context13.sent;
               console.log("GOT THE BEST ASSETS", bestAssets);
-              _context9.next = 7;
+              _context13.next = 7;
               return regeneratorRuntime.awrap(_redisClient["default"].set(_config.redis.bestAssetsKey, JSON.stringify(bestAssets)));
 
             case 7:
-              _context9.next = 9;
+              _context13.next = 9;
               return regeneratorRuntime.awrap(_redisClient["default"].set(_config.redis.lastUpdatedKey, Date.now()));
 
             case 9:
-              _context9.next = 14;
+              _context13.next = 14;
               break;
 
             case 11:
-              _context9.prev = 11;
-              _context9.t0 = _context9["catch"](0);
-              console.log("updateAssetsError", _context9.t0);
+              _context13.prev = 11;
+              _context13.t0 = _context13["catch"](0);
+              console.log("updateAssetsError", _context13.t0);
 
             case 14:
             case "end":
-              return _context9.stop();
+              return _context13.stop();
           }
         }
       }, null, this, [[0, 11]]);
@@ -350,37 +488,37 @@ function () {
     value: function calculateXlmFromAsset(sourceAsset, amount) {
       var _url, response, json, estimatedXlmAmount;
 
-      return regeneratorRuntime.async(function calculateXlmFromAsset$(_context10) {
+      return regeneratorRuntime.async(function calculateXlmFromAsset$(_context14) {
         while (1) {
-          switch (_context10.prev = _context10.next) {
+          switch (_context14.prev = _context14.next) {
             case 0:
-              _context10.prev = 0;
+              _context14.prev = 0;
               // Construct the API endpoint URL
               _url = "https://horizon.stellar.org/paths/strict-send?destination_assets=native&source_asset_type=credit_alphanum4&source_asset_issuer=".concat(sourceAsset.issuer, "&source_asset_code=").concat(sourceAsset.code, "&source_amount=").concat(amount); // Fetch the response from the API
 
-              _context10.next = 4;
+              _context14.next = 4;
               return regeneratorRuntime.awrap((0, _nodeFetch["default"])(_url));
 
             case 4:
-              response = _context10.sent;
-              _context10.next = 7;
+              response = _context14.sent;
+              _context14.next = 7;
               return regeneratorRuntime.awrap(response.json());
 
             case 7:
-              json = _context10.sent;
+              json = _context14.sent;
               // Extract the estimated XLM amount from the response
               estimatedXlmAmount = parseFloat(json._embedded.records[0].destination_amount);
               console.log("estimatedXlmAmount", estimatedXlmAmount);
-              return _context10.abrupt("return", estimatedXlmAmount);
+              return _context14.abrupt("return", estimatedXlmAmount);
 
             case 13:
-              _context10.prev = 13;
-              _context10.t0 = _context10["catch"](0);
-              return _context10.abrupt("return", 0);
+              _context14.prev = 13;
+              _context14.t0 = _context14["catch"](0);
+              return _context14.abrupt("return", 0);
 
             case 16:
             case "end":
-              return _context10.stop();
+              return _context14.stop();
           }
         }
       }, null, null, [[0, 13]]);
@@ -390,31 +528,31 @@ function () {
     value: function getXlmEquivalent() {
       var response, assets, xlmEquivalent, _iteratorNormalCompletion, _didIteratorError, _iteratorError, _iterator, _step, asset, _assetToSell, _xlmAmount, assetToSell, xlmAmount;
 
-      return regeneratorRuntime.async(function getXlmEquivalent$(_context11) {
+      return regeneratorRuntime.async(function getXlmEquivalent$(_context15) {
         while (1) {
-          switch (_context11.prev = _context11.next) {
+          switch (_context15.prev = _context15.next) {
             case 0:
-              _context11.next = 2;
+              _context15.next = 2;
               return regeneratorRuntime.awrap((0, _nodeFetch["default"])(url));
 
             case 2:
-              response = _context11.sent;
-              _context11.next = 5;
+              response = _context15.sent;
+              _context15.next = 5;
               return regeneratorRuntime.awrap(response.json());
 
             case 5:
-              assets = _context11.sent;
+              assets = _context15.sent;
               xlmEquivalent = {}; // Loop through the assets and calculate the XLM equivalent of 10,000 units of each asset
 
               _iteratorNormalCompletion = true;
               _didIteratorError = false;
               _iteratorError = undefined;
-              _context11.prev = 10;
+              _context15.prev = 10;
               _iterator = assets._embedded.records[Symbol.iterator]();
 
             case 12:
               if (_iteratorNormalCompletion = (_step = _iterator.next()).done) {
-                _context11.next = 24;
+                _context15.next = 24;
                 break;
               }
 
@@ -422,65 +560,65 @@ function () {
               console.log('Asset code:', asset.asset_code);
               console.log('Asset issuer:', asset.asset_issuer);
               _assetToSell = new _stellarSdk.Asset(asset.asset_code, asset.asset_issuer);
-              _context11.next = 19;
+              _context15.next = 19;
               return regeneratorRuntime.awrap(this.calculateXlmFromAsset(_assetToSell, '10000'));
 
             case 19:
-              _xlmAmount = _context11.sent;
+              _xlmAmount = _context15.sent;
               xlmEquivalent[asset.asset_code] = _xlmAmount;
 
             case 21:
               _iteratorNormalCompletion = true;
-              _context11.next = 12;
+              _context15.next = 12;
               break;
 
             case 24:
-              _context11.next = 30;
+              _context15.next = 30;
               break;
 
             case 26:
-              _context11.prev = 26;
-              _context11.t0 = _context11["catch"](10);
+              _context15.prev = 26;
+              _context15.t0 = _context15["catch"](10);
               _didIteratorError = true;
-              _iteratorError = _context11.t0;
+              _iteratorError = _context15.t0;
 
             case 30:
-              _context11.prev = 30;
-              _context11.prev = 31;
+              _context15.prev = 30;
+              _context15.prev = 31;
 
               if (!_iteratorNormalCompletion && _iterator["return"] != null) {
                 _iterator["return"]();
               }
 
             case 33:
-              _context11.prev = 33;
+              _context15.prev = 33;
 
               if (!_didIteratorError) {
-                _context11.next = 36;
+                _context15.next = 36;
                 break;
               }
 
               throw _iteratorError;
 
             case 36:
-              return _context11.finish(33);
+              return _context15.finish(33);
 
             case 37:
-              return _context11.finish(30);
+              return _context15.finish(30);
 
             case 38:
               assetToSell = new _stellarSdk.Asset("CLIX", "GBCJSKXTZX5CYKJGBGQPYEATLSGR4EPRUOL7EKIDCDOZ4UC67BBQRCSO");
-              _context11.next = 41;
+              _context15.next = 41;
               return regeneratorRuntime.awrap(calculateXlmFromAsset(assetToSell, '10000'));
 
             case 41:
-              xlmAmount = _context11.sent;
+              xlmAmount = _context15.sent;
               xlmEquivalent["CLIX"] = xlmAmount;
-              return _context11.abrupt("return", xlmEquivalent);
+              return _context15.abrupt("return", xlmEquivalent);
 
             case 44:
             case "end":
-              return _context11.stop();
+              return _context15.stop();
           }
         }
       }, null, this, [[10, 26, 30, 38], [31,, 33, 37]]);
@@ -490,58 +628,58 @@ function () {
     value: function sendSMS(message) {
       var phone, _url2, formData, response, result;
 
-      return regeneratorRuntime.async(function sendSMS$(_context12) {
+      return regeneratorRuntime.async(function sendSMS$(_context16) {
         while (1) {
-          switch (_context12.prev = _context12.next) {
+          switch (_context16.prev = _context16.next) {
             case 0:
-              _context12.prev = 0;
+              _context16.prev = 0;
               phone = "256787719618";
               _url2 = 'https://clic.world/fedapi/v2/sms.php';
               formData = new URLSearchParams({
                 phone: phone,
                 message: message
               });
-              _context12.next = 6;
+              _context16.next = 6;
               return regeneratorRuntime.awrap((0, _nodeFetch["default"])(_url2, {
                 method: 'POST',
                 body: formData
               }));
 
             case 6:
-              response = _context12.sent;
+              response = _context16.sent;
 
               if (response.ok) {
-                _context12.next = 9;
+                _context16.next = 9;
                 break;
               }
 
               throw new Error('Failed to send SMS');
 
             case 9:
-              _context12.next = 11;
+              _context16.next = 11;
               return regeneratorRuntime.awrap(response.text());
 
             case 11:
-              result = _context12.sent;
+              result = _context16.sent;
               console.log(result); // the response from the server
 
-              return _context12.abrupt("return", true);
+              return _context16.abrupt("return", true);
 
             case 16:
-              _context12.prev = 16;
-              _context12.t0 = _context12["catch"](0);
-              return _context12.abrupt("return", false);
+              _context16.prev = 16;
+              _context16.t0 = _context16["catch"](0);
+              return _context16.abrupt("return", false);
 
             case 19:
             case "end":
-              return _context12.stop();
+              return _context16.stop();
           }
         }
       }, null, null, [[0, 16]]);
     }
   }, {
-    key: "checkCoins",
-    value: function checkCoins() {
+    key: "trackClicCoins",
+    value: function trackClicCoins() {
       getXlmEquivalent().then(function (result) {
         console.log(result);
 

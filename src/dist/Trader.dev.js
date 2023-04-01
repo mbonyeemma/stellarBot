@@ -21,6 +21,8 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
 
+function _readOnlyError(name) { throw new Error("\"" + name + "\" is read-only"); }
+
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
@@ -40,64 +42,63 @@ function () {
   _createClass(Trader, [{
     key: "init",
     value: function init(assetToBuy) {
-      var publicKey, secretKey, keypair, account, assetPrice, quoteAssetBalance, amount, result, isDeleted;
+      var publicKey, secretKey, account, assetPrice, quoteAssetBalance, amount, result, isDeleted;
       return regeneratorRuntime.async(function init$(_context) {
         while (1) {
           switch (_context.prev = _context.next) {
             case 0:
-              console.log("step1");
+              console.log("started the init function with asset,", assetToBuy);
               publicKey = _config.config.publicKey;
               secretKey = _config.config.secretKey;
-              keypair = _stellarSdk.Keypair.fromSecret(secretKey);
-              _context.next = 6;
+              _context.next = 5;
               return regeneratorRuntime.awrap(server.loadAccount(publicKey));
 
-            case 6:
+            case 5:
               account = _context.sent;
-              _context.next = 9;
+              _context.next = 8;
               return regeneratorRuntime.awrap(this.hasTrustLine(account, assetToBuy));
 
-            case 9:
+            case 8:
               if (_context.sent) {
-                _context.next = 13;
+                _context.next = 12;
                 break;
               }
 
               console.log("Adding trustline for asset: ".concat(assetToBuy.code));
-              _context.next = 13;
-              return regeneratorRuntime.awrap(this.addTrustLine(server, account, assetToBuy, keypair));
+              _context.next = 12;
+              return regeneratorRuntime.awrap(this.addTrustLine(assetToBuy, "100000000"));
 
-            case 13:
-              _context.next = 15;
+            case 12:
+              _context.next = 14;
               return regeneratorRuntime.awrap(execution.getAssetPrice(assetToBuy));
 
-            case 15:
+            case 14:
               assetPrice = _context.sent;
-              _context.next = 18;
+              _context.next = 17;
               return regeneratorRuntime.awrap(execution.getAssetBalance(_config.config.quoteAsset));
 
-            case 18:
+            case 17:
               quoteAssetBalance = _context.sent;
               console.log("Asset to buy: ".concat(assetToBuy.code, ", Asset price: ").concat(assetPrice, ", Quote asset balance: ").concat(quoteAssetBalance));
               console.log("step ", 2);
               amount = (quoteAssetBalance * 0.4 / assetPrice).toFixed(7);
               console.log("amount", amount);
-              _context.next = 25;
+              _context.next = 24;
               return regeneratorRuntime.awrap(execution.placeBuyOrder(assetToBuy, amount, assetPrice));
 
-            case 25:
+            case 24:
               result = _context.sent;
               console.log('Buy order result:', result);
 
               if (!(result !== false)) {
-                _context.next = 33;
+                _context.next = 32;
                 break;
               }
 
-              _context.next = 30;
+              _context.next = 29;
               return regeneratorRuntime.awrap(execution.deleteAllSellOffersForAsset(assetToBuy));
 
-            case 30:
+            case 29:
               isDeleted = _context.sent;
 
               if (isDeleted) {
@@ -111,7 +112,7 @@ function () {
                 assetPrice: assetPrice
               });
 
-            case 33:
+            case 32:
             case "end":
               return _context.stop();
           }
@@ -138,16 +139,25 @@ function () {
     }
   }, {
     key: "addTrustLine",
-    value: function addTrustLine(server, account, asset, keypair) {
-      var assetObj, trustlineOperation, transaction, result;
+    value: function addTrustLine(asset, limit) {
+      var publicKey, secretKey, account, keypair, assetObj, trustlineOperation, transaction, result;
       return regeneratorRuntime.async(function addTrustLine$(_context3) {
         while (1) {
           switch (_context3.prev = _context3.next) {
             case 0:
+              _context3.prev = 0;
+              publicKey = _config.config.publicKey;
+              secretKey = _config.config.secretKey;
+              _context3.next = 5;
+              return regeneratorRuntime.awrap(server.loadAccount(publicKey));
+
+            case 5:
+              account = _context3.sent;
+              keypair = _stellarSdk.Keypair.fromSecret(secretKey);
               assetObj = new _stellarSdk["default"].Asset(asset.code, asset.issuer);
               trustlineOperation = _stellarSdk["default"].Operation.changeTrust({
                 asset: assetObj,
-                limit: '100000000' // Set a limit for the trust line
+                limit: limit // Set a limit for the trust line
 
               });
               transaction = new _stellarSdk["default"].TransactionBuilder(account, {
@@ -155,25 +165,31 @@ function () {
                 networkPassphrase: _stellarSdk["default"].Networks.PUBLIC
               }).addOperation(trustlineOperation).setTimeout(180).build();
               transaction.sign(keypair);
-              _context3.next = 6;
+              _context3.next = 13;
               return regeneratorRuntime.awrap(server.submitTransaction(transaction));
 
-            case 6:
+            case 13:
               result = _context3.sent;
               return _context3.abrupt("return", result);
 
-            case 8:
+            case 17:
+              _context3.prev = 17;
+              _context3.t0 = _context3["catch"](0);
+              return _context3.abrupt("return", false);
+
+            case 20:
             case "end":
               return _context3.stop();
           }
         }
-      });
+      }, null, null, [[0, 17]]);
     }
   }, {
-    key: "sellAssetOnMarket",
-    value: function sellAssetOnMarket(assetToSell) {
-      var isDeleted, baseAsset, orderbook, assetBalance, sellPrice, sellAmount, sellResult;
-      return regeneratorRuntime.async(function sellAssetOnMarket$(_context4) {
+    key: "removeAsset",
+    value: function removeAsset(assetToSell) {
+      var isDeleted, assetBalance, sellPrice, sellResult, _sellResult;
+
+      return regeneratorRuntime.async(function removeAsset$(_context4) {
         while (1) {
           switch (_context4.prev = _context4.next) {
             case 0:
@@ -183,62 +199,147 @@ function () {
 
             case 3:
               isDeleted = _context4.sent;
-              baseAsset = execution.createAsset("XLM", "");
-              _context4.next = 7;
-              return regeneratorRuntime.awrap(server.orderbook(assetToSell, baseAsset).call());
-
-            case 7:
-              orderbook = _context4.sent;
-              _context4.next = 10;
+              _context4.next = 6;
               return regeneratorRuntime.awrap(execution.getAssetBalance(assetToSell));
 
-            case 10:
+            case 6:
               assetBalance = _context4.sent;
-              _context4.next = 13;
-              return regeneratorRuntime.awrap(this.calculateSellPrice(orderbook, assetBalance, null, null));
+              sellPrice = "0.0000001";
+              sellResult = true;
 
-            case 13:
-              sellPrice = _context4.sent;
-              console.log("sellPrice", sellPrice);
-              sellAmount = assetBalance;
+              if (!(assetBalance > 0)) {
+                _context4.next = 15;
+                break;
+              }
+
+              _context4.next = 12;
+              return regeneratorRuntime.awrap(execution.StrictSendTransaction(assetToSell, assetBalance));
+
+            case 12:
+              _sellResult = _context4.sent;
+              console.log("Strictr send placed at ".concat(sellPrice, "."), _sellResult);
+
+              if (_sellResult !== false) {
+                _sellResult = (_readOnlyError("sellResult"), true);
+              } else {
+                _sellResult = (_readOnlyError("sellResult"), false);
+              }
+
+            case 15:
+              if (!sellResult) {
+                _context4.next = 19;
+                break;
+              }
+
               _context4.next = 18;
-              return regeneratorRuntime.awrap(execution.placeSellOrder(assetToSell, sellAmount, sellPrice, 0));
+              return regeneratorRuntime.awrap(this.addTrustLine(assetToSell, "0"));
 
             case 18:
-              sellResult = _context4.sent;
-              console.log("Sell order placed at ".concat(sellPrice, "."), sellResult);
-              _context4.next = 25;
+              console.log('Asset Removed', assetToSell);
+
+            case 19:
+              _context4.next = 24;
               break;
 
-            case 22:
-              _context4.prev = 22;
+            case 21:
+              _context4.prev = 21;
               _context4.t0 = _context4["catch"](0);
-              console.log("ERRO 2", _context4.t0);
+              console.log("ERROR REMOVING ASSET", _context4.t0);
 
-            case 25:
+            case 24:
               return _context4.abrupt("return", true);
 
-            case 26:
+            case 25:
             case "end":
               return _context4.stop();
           }
         }
-      }, null, this, [[0, 22]]);
+      }, null, this, [[0, 21]]);
+    }
+  }, {
+    key: "sellAssetOnMarket",
+    value: function sellAssetOnMarket(assetToSell) {
+      var isDeleted, baseAsset, orderbook, assetBalance, sellPrice, sellAmount, sellResult;
+      return regeneratorRuntime.async(function sellAssetOnMarket$(_context5) {
+        while (1) {
+          switch (_context5.prev = _context5.next) {
+            case 0:
+              _context5.prev = 0;
+              _context5.next = 3;
+              return regeneratorRuntime.awrap(execution.deleteAllSellOffersForAsset(assetToSell));
+
+            case 3:
+              isDeleted = _context5.sent;
+              baseAsset = execution.createAsset("XLM", "");
+              _context5.next = 7;
+              return regeneratorRuntime.awrap(server.orderbook(assetToSell, baseAsset).call());
+
+            case 7:
+              orderbook = _context5.sent;
+              _context5.next = 10;
+              return regeneratorRuntime.awrap(execution.getAssetBalance(assetToSell));
+
+            case 10:
+              assetBalance = _context5.sent;
+              _context5.next = 13;
+              return regeneratorRuntime.awrap(this.calculateSellPrice(orderbook, assetBalance, null, null));
+
+            case 13:
+              sellPrice = _context5.sent;
+              console.log("sellPrice", sellPrice);
+              sellAmount = assetBalance;
+              sellPrice = sellPrice.toFixed(7);
+
+              if (!(sellPrice > 0)) {
+                _context5.next = 24;
+                break;
+              }
+
+              _context5.next = 20;
+              return regeneratorRuntime.awrap(execution.placeSellOrder(assetToSell, sellAmount, sellPrice, 0));
+
+            case 20:
+              sellResult = _context5.sent;
+              console.log("Sell order placed at ".concat(sellPrice, "."), sellResult);
+              _context5.next = 25;
+              break;
+
+            case 24:
+              console.log("Sell order NOT placed at ".concat(sellPrice, "."));
+
+            case 25:
+              _context5.next = 30;
+              break;
+
+            case 27:
+              _context5.prev = 27;
+              _context5.t0 = _context5["catch"](0);
+              console.log("ERRO 2", _context5.t0);
+
+            case 30:
+              return _context5.abrupt("return", true);
+
+            case 31:
+            case "end":
+              return _context5.stop();
+          }
+        }
+      }, null, this, [[0, 27]]);
     }
   }, {
     key: "monitorBuyOrderAndPlaceSellOrder",
     value: function monitorBuyOrderAndPlaceSellOrder(assetToBuy, buyOrderId, buyPrice) {
       var existingDetails, minimumExitProfit, increment, updateMinimumExitProfit, assetPrice, isDeleted, orderbook, AssetBalance, sellPrice, sellAmount, currentProfit, sellResult;
-      return regeneratorRuntime.async(function monitorBuyOrderAndPlaceSellOrder$(_context6) {
+      return regeneratorRuntime.async(function monitorBuyOrderAndPlaceSellOrder$(_context7) {
         while (1) {
-          switch (_context6.prev = _context6.next) {
+          switch (_context7.prev = _context7.next) {
             case 0:
-              _context6.prev = 0;
-              _context6.next = 3;
+              _context7.prev = 0;
+              _context7.next = 3;
               return regeneratorRuntime.awrap(helper.retrieveOrderDetails(buyOrderId));
 
             case 3:
-              existingDetails = _context6.sent;
+              existingDetails = _context7.sent;
               minimumExitProfit = existingDetails.lastHightProfit;
 
               increment = function increment(currentProfit) {
@@ -246,69 +347,69 @@ function () {
               };
 
               updateMinimumExitProfit = function updateMinimumExitProfit(currentProfit) {
-                return regeneratorRuntime.async(function updateMinimumExitProfit$(_context5) {
+                return regeneratorRuntime.async(function updateMinimumExitProfit$(_context6) {
                   while (1) {
-                    switch (_context5.prev = _context5.next) {
+                    switch (_context6.prev = _context6.next) {
                       case 0:
                         if (!(currentProfit >= minimumExitProfit)) {
-                          _context5.next = 4;
+                          _context6.next = 4;
                           break;
                         }
 
-                        _context5.next = 3;
+                        _context6.next = 3;
                         return regeneratorRuntime.awrap(helper.updateLastHighProfit(buyOrderId, currentProfit));
 
                       case 3:
-                        return _context5.abrupt("return", currentProfit);
+                        return _context6.abrupt("return", currentProfit);
 
                       case 4:
-                        return _context5.abrupt("return", minimumExitProfit);
+                        return _context6.abrupt("return", minimumExitProfit);
 
                       case 5:
                       case "end":
-                        return _context5.stop();
+                        return _context6.stop();
                     }
                   }
                 });
               };
 
-              _context6.next = 9;
+              _context7.next = 9;
               return regeneratorRuntime.awrap(execution.deleteAllSellOffersForAsset(assetToBuy));
 
             case 9:
-              isDeleted = _context6.sent;
-              _context6.next = 12;
+              isDeleted = _context7.sent;
+              _context7.next = 12;
               return regeneratorRuntime.awrap(server.orderbook(_config.config.quoteAsset, assetToBuy).call());
 
             case 12:
-              orderbook = _context6.sent;
-              _context6.next = 15;
+              orderbook = _context7.sent;
+              _context7.next = 15;
               return regeneratorRuntime.awrap(execution.getAssetBalance(assetToBuy));
 
             case 15:
-              AssetBalance = _context6.sent;
+              AssetBalance = _context7.sent;
               sellPrice = this.calculateSellPrice(orderbook, AssetBalance, buyPrice);
               assetPrice = parseFloat(orderbook.bids[0].price);
               sellAmount = (0.5 * AssetBalance).toFixed(6);
               currentProfit = (assetPrice - buyPrice) / buyPrice;
-              _context6.next = 22;
+              _context7.next = 22;
               return regeneratorRuntime.awrap(execution.placeSellOrder(assetToBuy, sellAmount, sellPrice, 0));
 
             case 22:
-              sellResult = _context6.sent;
+              sellResult = _context7.sent;
               sellOfferId = sellResult;
               console.log("Sell order placed at ".concat(sellPrice, ". Profit: ").concat(minimumExitProfit * 100, "%"), sellResult);
               minimumExitProfit = updateMinimumExitProfit(currentProfit);
-              return _context6.abrupt("return", minimumExitProfit);
+              return _context7.abrupt("return", minimumExitProfit);
 
             case 29:
-              _context6.prev = 29;
-              _context6.t0 = _context6["catch"](0);
-              console.log("MONITOR ERROR", _context6.t0);
+              _context7.prev = 29;
+              _context7.t0 = _context7["catch"](0);
+              console.log("MONITOR ERROR", _context7.t0);
 
             case 32:
             case "end":
-              return _context6.stop();
+              return _context7.stop();
           }
         }
       }, null, this, [[0, 29]]);
@@ -318,20 +419,18 @@ function () {
     value: function calculateSellPrice(orderbook, amount, Price) {
       var accumulatedAmount, topBuyPrice, topBuyAmount, i, buy, askPrice, _i, ask, option2Price, sellPrice;
 
-      return regeneratorRuntime.async(function calculateSellPrice$(_context7) {
+      return regeneratorRuntime.async(function calculateSellPrice$(_context8) {
         while (1) {
-          switch (_context7.prev = _context7.next) {
+          switch (_context8.prev = _context8.next) {
             case 0:
               accumulatedAmount = 0;
               topBuyPrice = Price;
               topBuyAmount = amount;
-              console.log("amount", amount);
-              console.log("BIDS", orderbook.asks);
               i = 0;
 
-            case 6:
+            case 4:
               if (!(i < orderbook.asks.length)) {
-                _context7.next = 17;
+                _context8.next = 15;
                 break;
               }
 
@@ -340,54 +439,54 @@ function () {
               console.log("accumulatedAmount", accumulatedAmount);
 
               if (!(accumulatedAmount >= amount * 0.3)) {
-                _context7.next = 14;
+                _context8.next = 12;
                 break;
               }
 
               topBuyPrice = parseFloat(buy.price);
               topBuyAmount = accumulatedAmount;
-              return _context7.abrupt("break", 17);
+              return _context8.abrupt("break", 15);
 
-            case 14:
+            case 12:
               i++;
-              _context7.next = 6;
+              _context8.next = 4;
               break;
 
-            case 17:
+            case 15:
               if (!(!topBuyPrice || !topBuyAmount)) {
-                _context7.next = 19;
+                _context8.next = 17;
                 break;
               }
 
-              return _context7.abrupt("return", 0.1);
+              return _context8.abrupt("return", 0.1);
 
-            case 19:
+            case 17:
               // Find the highest ask price where the amount is more than 30% of the total asks
               askPrice = 0;
               _i = 0;
 
-            case 21:
+            case 19:
               if (!(_i < orderbook.asks.length)) {
-                _context7.next = 29;
+                _context8.next = 27;
                 break;
               }
 
               ask = orderbook.asks[_i];
 
               if (!(parseFloat(ask.amount) >= topBuyAmount)) {
-                _context7.next = 26;
+                _context8.next = 24;
                 break;
               }
 
               askPrice = parseFloat(ask.price);
-              return _context7.abrupt("break", 29);
+              return _context8.abrupt("break", 27);
 
-            case 26:
+            case 24:
               _i++;
-              _context7.next = 21;
+              _context8.next = 19;
               break;
 
-            case 29:
+            case 27:
               // If the ask price is 0, use the second lowest ask price
               if (askPrice === 0 && orderbook.asks.length >= 2) {
                 askPrice = parseFloat(orderbook.asks[1].price);
@@ -396,11 +495,11 @@ function () {
               option2Price = askPrice * 1.03;
               console.log("option1Price", topBuyPrice, "option2Price", option2Price);
               sellPrice = Math.min(topBuyPrice, option2Price);
-              return _context7.abrupt("return", sellPrice - 0.0000002);
+              return _context8.abrupt("return", sellPrice - 0.0000002);
 
-            case 34:
+            case 32:
             case "end":
-              return _context7.stop();
+              return _context8.stop();
           }
         }
       });

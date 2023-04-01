@@ -14,72 +14,123 @@ const publicKey = 'GANDGDF7ZHF7RVXMI53PUSCMVWEFANGTZ4RLEH2DGPDFI5BGWYOLAXRR';
 const url = `${serverUrl}/assets?asset_issuer=${publicKey}&limit=200`;
 const execution = new Execution();
 const trader = new Trader();
+let isInit = true;
 
 export default class CronService {
   constructor() {
     this.assets = new AssetLookup();
     this.init();
     this.placeInitialOrder();
-    this.offersCron();
+    //this.offersCron();
     this.sellAssets();
     this.checkCoinLoop();
   }
 
 
+  // EVERY MINUTE
   async placeInitialOrder() {
-    let bestAssetsJSON = await redisClient.get(redis.bestAssetsKey);
-    if (!bestAssetsJSON) {
-      console.log("Waiting for best assets data to become available...");
-      setTimeout(() => {
-        console.log('10 seconds have passed!');
-        this.placeInitialOrder();
-      }, 10000);
-      return;
-    }
-    const bestAssets = JSON.parse(bestAssetsJSON);
-
-    const asset = bestAssets[0];
-    console.log("bestAsset", asset);
-    const assetObj = new StellarSdk.Asset(asset.code, asset.issuer);
-    await trader.init(assetObj);
-  }
-
-  async init() {
-    console.log("Starting cron service to update best assets...");
-    // Check if Redis has data
-    const bestAssetsJSON = await redisClient.get(redis.bestAssetsKey);
-    console.log("bestAssetsJSON", bestAssetsJSON);
-    if (!bestAssetsJSON || bestAssetsJSON.length < 3) {
-      console.log("Best assets data not found in Redis. Updating immediately...");
-      await this.updateBestAssets();
-    }
-
-    cron.schedule('0 0 * * *', this.updateBestAssets, {
+    console.log("BUYING Assets every MINUTE")
+    cron.schedule('*/5 * * * *', this.buyAssets, {
       scheduled: true
     });
   }
 
-  async offersCron() {
-    console.log("Checking the saved orders...");
-    cron.schedule('*/30 * * * * *', this.offersWorker, {
-      scheduled: true
-    });
-  }
-
-  async checkCoinLoop() {
-    console.log("Checking the saved orders...");
-    cron.schedule('0 * * * *', this.checkCoins, {
-      scheduled: true
-    });
-  }
-
-
-
+  // EVERY 2 MINUTES
   async sellAssets() {
-    console.log("Checking the saved orders...");
+    console.log("sellAssets every 2 minutes...");
     cron.schedule('*/2 * * * *', this.sellAssetOnMarket, {
       scheduled: true
     });
+  }
+
+  // EVERY 1 HOUR
+  async checkCoinLoop() {
+    console.log("Checking the coins every hour");
+    // THIS IS TO CHECK THE ISSUER ACCOUNT AND SEND EMMA AN SMS
+    cron.schedule('*/30 * * * *', this.trackClicCoins, {
+      scheduled: true
+    });
+  }
+
+
+    // EVERY 30 SECONDS. NOT USED FOR NOW
+    async offersCron() {
+      console.log("offersWorker, every 30 secods");
+      cron.schedule('*/30 * * * * *', this.offersWorker, {
+        scheduled: true
+      });
+    }
+    
+
+  async buyAssets() {
+    let bestAssetsJSON = await redisClient.get(redis.bestAssetsKey);
+    if (bestAssetsJSON) {
+      const bestAssets = JSON.parse(bestAssetsJSON);
+      bestAssets.forEach(async element => {
+        const asset = element
+        console.log("bestAsset", asset);
+        const assetObj = new StellarSdk.Asset(asset.code, asset.issuer);
+        await trader.init(assetObj);
+        this.sleep(2)
+      });
+    }
+  }
+
+
+  async init() {
+    try {
+      await redisClient.del(redis.bestAssetsKey);
+      isInit = false
+      console.log("Starting cron service to update best assets...");
+      const bestAssetsJSON = await redisClient.get(redis.bestAssetsKey);
+      console.log("bestAssetsJSON", bestAssetsJSON);
+      if (!bestAssetsJSON || bestAssetsJSON.length < 3) {
+        console.log("Best assets data not found in Redis. Updating immediately...");
+        await this.updateBestAssets();
+      }
+
+      this.removeAssets();
+      // EVERY DAY
+      cron.schedule('0 0 * * *', this.updateBestAssets, {
+        scheduled: true
+      });
+    } catch (error) {
+      console.log("REDIS ERROR", error)
+      if (isInit) {
+        console.log("sleeping for 10 sec and try AGAIN")
+        await this.sleep(10000000)
+        this.init();
+      }
+    }
+  }
+
+
+
+  async removeAssets() {
+    const balances = await execution.getBalances();
+    console.log("removeAssets ")
+    const AssetsToRemove = []
+    for (let i = 0; i < balances.length; i++) {
+      const balance = balances[i];
+      const asset_type = balance.asset_type
+      if (asset_type != 'native') {
+        const asset = balance.asset_code
+        const issuer = balance.asset_issuer
+        const sellAsset = execution.createAsset(asset, issuer)
+        const assetBalance = parseFloat(balance.balance);
+
+        if (assetBalance < 5) {
+          console.log("removing asset,  ", sellAsset)
+          await trader.removeAsset(sellAsset);
+          console.log("asset remoed , sleeping for 2 sec  ")
+        }
+      }
+    }
+    return true;
+  }
+
+  async sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
 
@@ -96,8 +147,8 @@ export default class CronService {
         const sellAsset = execution.createAsset(asset, issuer)
         const assetBalance = parseFloat(balance.balance);
 
-        if (assetBalance > 10) {
-          console.log("sending Asset for ", sellAsset)
+        if (assetBalance >= 5) {
+          console.log("selling ", sellAsset)
           await trader.sellAssetOnMarket(sellAsset);
         }
       }
@@ -205,7 +256,7 @@ export default class CronService {
   }
 
 
-  checkCoins() {
+  trackClicCoins() {
     getXlmEquivalent().then((result) => {
       console.log(result);
 

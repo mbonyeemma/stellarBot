@@ -1,4 +1,4 @@
-import StellarSdk from 'stellar-sdk';
+import StellarSdk,{Asset} from 'stellar-sdk';
 import { config } from './config';
 import dotenv from 'dotenv'
 dotenv.config()
@@ -189,7 +189,7 @@ export default class Execution {
   }
 
   async placeSellOrder(assetToSell, amount, price, offerId = 0) {
-    console.log("placeSellOrder", assetToSell)
+    console.log("placeSellOrder", assetToSell, amount, price, offerId)
     try {
       const senderKeypair = StellarSdk.Keypair.fromSecret(config.secretKey);
       const sellingAsset = new StellarSdk.Asset(assetToSell.code, assetToSell.issuer);
@@ -225,26 +225,57 @@ export default class Execution {
       transaction.sign(senderKeypair);
       try {
         const transactionResult = await server.submitTransaction(transaction);
-        console.log(transactionResult);
-        const operationResult = transactionResult.extras.result_codes.operations[0];
-        if (operationResult === "op_success") {
-          const manageSellOfferResult = transactionResult.result_xdr
-            ? StellarSdk.xdr.TransactionResult.fromXDR(
-              transactionResult.result_xdr,
-              "base64"
-            ).result().results()[0].value()
-            : null;
-          const orderId = manageSellOfferResult.offerId().toString();
-          console.log("Order ID:", orderId);
-          return orderId;
-        } else {
-          console.error("Operation failed:", operationResult);
-          console.error("Operations:", transactionResult.extras.result_codes.operations);
-          return false;
-        }
+        return transactionResult.hash
       } catch (e) {
         console.error("Oh no! Something went wrong.");
-        console.error("Error managing sell offer:", e.response.data);
+        console.error("Operations:", e.response.data.extras.result_codes.operations);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error managing sell offer:", error);
+      return false;
+    }
+  }
+  async StrictSendTransaction(assetToSell, amount) {
+    console.log("StrictSend", assetToSell, amount)
+    try {
+      const senderKeypair = StellarSdk.Keypair.fromSecret(config.secretKey);
+      const sellingAsset = new StellarSdk.Asset(assetToSell.code, assetToSell.issuer);
+
+      const data = {
+        sendAsset: sellingAsset,
+        sendAmount: amount.toFixed(7).toString(),
+        destination: senderKeypair.publicKey(),
+        destAsset: Asset.native(), 
+        destMin: "0.0000001",
+      };
+      console.log("sellArray", data);
+
+      const [
+        {
+          max_fee: { mode: fee },
+        },
+        sender,
+      ] = await Promise.all([
+        server.feeStats(),
+        server.loadAccount(senderKeypair.publicKey()),
+      ]);
+
+      const manageSellOfferOp = StellarSdk.Operation.pathPaymentStrictSend(data);
+      var transaction = new StellarSdk.TransactionBuilder(sender, {
+        fee,
+        networkPassphrase: StellarSdk.Networks.PUBLIC,
+      })
+        .addOperation(manageSellOfferOp)
+        .setTimeout(100)
+        .build();
+
+      transaction.sign(senderKeypair);
+      try {
+        const transactionResult = await server.submitTransaction(transaction);
+        return transactionResult.hash
+      } catch (e) {
+        console.error("Oh no! Something went wrong.");
         console.error("Operations:", e.response.data.extras.result_codes.operations);
         return false;
       }
