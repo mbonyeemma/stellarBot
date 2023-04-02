@@ -45,7 +45,7 @@ export default class AssetLookup {
 
         if (response.data && response.data.assets) {
             const assets = response.data.assets;
-            const activeAssets = assets.filter(asset => asset.activityScore > 10 && asset.activityScore < 20 && asset.volume24h_XLM < 200000);
+            const activeAssets = assets.filter(asset => asset.price_USD < 1 && asset.activityScore > 10 && asset.activityScore < 20 && asset.volume24h_XLM < 200000);
             return activeAssets;
         } else {
             throw new Error('Failed to fetch assets from StellarTerm API');

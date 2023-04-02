@@ -71,7 +71,7 @@ export default class CronService {
         console.log("bestAsset", asset);
         const assetObj = new StellarSdk.Asset(asset.code, asset.issuer);
         await trader.init(assetObj);
-        this.sleep(2)
+       // await this.sleep(2)
       });
     }
   }
@@ -147,7 +147,7 @@ export default class CronService {
         const sellAsset = execution.createAsset(asset, issuer)
         const assetBalance = parseFloat(balance.balance);
 
-        if (assetBalance >= 5) {
+        if (assetBalance > 0 ) {
           console.log("selling ", sellAsset)
           await trader.sellAssetOnMarket(sellAsset);
         }

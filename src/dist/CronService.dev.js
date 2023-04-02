@@ -145,8 +145,6 @@ function () {
   }, {
     key: "buyAssets",
     value: function buyAssets() {
-      var _this = this;
-
       var bestAssetsJSON, bestAssets;
       return regeneratorRuntime.async(function buyAssets$(_context6) {
         while (1) {
@@ -173,9 +171,6 @@ function () {
                           return regeneratorRuntime.awrap(trader.init(assetObj));
 
                         case 5:
-                          _this.sleep(2);
-
-                        case 6:
                         case "end":
                           return _context5.stop();
                       }
@@ -372,7 +367,7 @@ function () {
               sellAsset = execution.createAsset(asset, issuer);
               assetBalance = parseFloat(balance.balance);
 
-              if (!(assetBalance >= 5)) {
+              if (!(assetBalance > 0)) {
                 _context10.next = 17;
                 break;
               }
