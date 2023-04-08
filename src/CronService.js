@@ -89,7 +89,6 @@ export default class CronService {
         await this.updateBestAssets();
       }
 
-      this.removeAssets();
       // EVERY DAY
       cron.schedule('0 0 * * *', this.updateBestAssets, {
         scheduled: true
@@ -174,7 +173,7 @@ export default class CronService {
 
   async updateBestAssets() {
     try {
-
+      this.removeAssets();
       const bestAssets = await this.assets.getBestAssetsToTrade(5);
       console.log("GOT THE BEST ASSETS", bestAssets);
       await redisClient.set(redis.bestAssetsKey, JSON.stringify(bestAssets));

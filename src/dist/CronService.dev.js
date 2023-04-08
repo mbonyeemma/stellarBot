@@ -218,38 +218,37 @@ function () {
               return regeneratorRuntime.awrap(this.updateBestAssets());
 
             case 13:
-              this.removeAssets(); // EVERY DAY
-
+              // EVERY DAY
               _nodeCron["default"].schedule('0 0 * * *', this.updateBestAssets, {
                 scheduled: true
               });
 
-              _context7.next = 25;
+              _context7.next = 24;
               break;
 
-            case 17:
-              _context7.prev = 17;
+            case 16:
+              _context7.prev = 16;
               _context7.t0 = _context7["catch"](0);
               console.log("REDIS ERROR", _context7.t0);
 
               if (!isInit) {
-                _context7.next = 25;
+                _context7.next = 24;
                 break;
               }
 
               console.log("sleeping for 10 sec and try AGAIN");
-              _context7.next = 24;
+              _context7.next = 23;
               return regeneratorRuntime.awrap(this.sleep(10000000));
 
-            case 24:
+            case 23:
               this.init();
 
-            case 25:
+            case 24:
             case "end":
               return _context7.stop();
           }
         }
-      }, null, this, [[0, 17]]);
+      }, null, this, [[0, 16]]);
     }
   }, {
     key: "removeAssets",
@@ -449,34 +448,35 @@ function () {
           switch (_context13.prev = _context13.next) {
             case 0:
               _context13.prev = 0;
-              _context13.next = 3;
+              this.removeAssets();
+              _context13.next = 4;
               return regeneratorRuntime.awrap(this.assets.getBestAssetsToTrade(5));
 
-            case 3:
+            case 4:
               bestAssets = _context13.sent;
               console.log("GOT THE BEST ASSETS", bestAssets);
-              _context13.next = 7;
+              _context13.next = 8;
               return regeneratorRuntime.awrap(_redisClient["default"].set(_config.redis.bestAssetsKey, JSON.stringify(bestAssets)));
 
-            case 7:
-              _context13.next = 9;
+            case 8:
+              _context13.next = 10;
               return regeneratorRuntime.awrap(_redisClient["default"].set(_config.redis.lastUpdatedKey, Date.now()));
 
-            case 9:
-              _context13.next = 14;
+            case 10:
+              _context13.next = 15;
               break;
 
-            case 11:
-              _context13.prev = 11;
+            case 12:
+              _context13.prev = 12;
               _context13.t0 = _context13["catch"](0);
               console.log("updateAssetsError", _context13.t0);
 
-            case 14:
+            case 15:
             case "end":
               return _context13.stop();
           }
         }
-      }, null, this, [[0, 11]]);
+      }, null, this, [[0, 12]]);
     }
   }, {
     key: "calculateXlmFromAsset",

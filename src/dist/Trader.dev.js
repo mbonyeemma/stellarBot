@@ -81,24 +81,34 @@ function () {
               quoteAssetBalance = _context.sent;
               console.log("Asset to buy: ".concat(assetToBuy.code, ", Asset price: ").concat(assetPrice, ", Quote asset balance: ").concat(quoteAssetBalance));
               console.log("step ", 2);
+
+              if (!(quoteAssetBalance < 20)) {
+                _context.next = 23;
+                break;
+              }
+
+              console.log("not enough funds to trade");
+              return _context.abrupt("return", true);
+
+            case 23:
               amount = (quoteAssetBalance * 0.4 / assetPrice).toFixed(7);
               console.log("amount", amount);
-              _context.next = 24;
+              _context.next = 27;
               return regeneratorRuntime.awrap(execution.placeBuyOrder(assetToBuy, amount, assetPrice));
 
-            case 24:
+            case 27:
               result = _context.sent;
               console.log('Buy order result:', result);
 
               if (!(result !== false)) {
-                _context.next = 32;
+                _context.next = 35;
                 break;
               }
 
-              _context.next = 29;
+              _context.next = 32;
               return regeneratorRuntime.awrap(execution.deleteAllSellOffersForAsset(assetToBuy));
 
-            case 29:
+            case 32:
               isDeleted = _context.sent;
 
               if (isDeleted) {
@@ -112,7 +122,7 @@ function () {
                 assetPrice: assetPrice
               });
 
-            case 32:
+            case 35:
             case "end":
               return _context.stop();
           }

@@ -24,6 +24,11 @@ export default class Trader {
     console.log(`Asset to buy: ${assetToBuy.code}, Asset price: ${assetPrice}, Quote asset balance: ${quoteAssetBalance}`);
     console.log("step ", 2)
 
+    if(quoteAssetBalance < 20){
+      console.log("not enough funds to trade")
+      return true;
+    }
+
     const amount = ((quoteAssetBalance * 0.4) / assetPrice).toFixed(7)
     console.log("amount", amount)
 
