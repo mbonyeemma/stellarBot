@@ -19,7 +19,7 @@ let isInit = true;
 export default class CronService {
   constructor() {
     this.assets = new AssetLookup();
-    this.init();
+    //this.init();
     this.placeInitialOrder();
     //this.offersCron();
     this.sellAssets();

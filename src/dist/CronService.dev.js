@@ -50,8 +50,8 @@ function () {
   function CronService() {
     _classCallCheck(this, CronService);
 
-    this.assets = new _AssetLookup["default"]();
-    this.init();
+    this.assets = new _AssetLookup["default"](); //this.init();
+
     this.placeInitialOrder(); //this.offersCron();
 
     this.sellAssets();

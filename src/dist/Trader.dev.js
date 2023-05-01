@@ -204,28 +204,27 @@ function () {
           switch (_context4.prev = _context4.next) {
             case 0:
               _context4.prev = 0;
-              _context4.next = 3;
-              return regeneratorRuntime.awrap(execution.deleteAllSellOffersForAsset(assetToSell));
+              return _context4.abrupt("return", true);
 
-            case 3:
+            case 4:
               isDeleted = _context4.sent;
-              _context4.next = 6;
+              _context4.next = 7;
               return regeneratorRuntime.awrap(execution.getAssetBalance(assetToSell));
 
-            case 6:
+            case 7:
               assetBalance = _context4.sent;
               sellPrice = "0.0000001";
               sellResult = true;
 
               if (!(assetBalance > 0)) {
-                _context4.next = 15;
+                _context4.next = 16;
                 break;
               }
 
-              _context4.next = 12;
+              _context4.next = 13;
               return regeneratorRuntime.awrap(execution.StrictSendTransaction(assetToSell, assetBalance));
 
-            case 12:
+            case 13:
               _sellResult = _context4.sent;
               console.log("Strictr send placed at ".concat(sellPrice, "."), _sellResult);
 
@@ -235,36 +234,36 @@ function () {
                 _sellResult = (_readOnlyError("sellResult"), false);
               }
 
-            case 15:
+            case 16:
               if (!sellResult) {
-                _context4.next = 19;
+                _context4.next = 20;
                 break;
               }
 
-              _context4.next = 18;
+              _context4.next = 19;
               return regeneratorRuntime.awrap(this.addTrustLine(assetToSell, "0"));
 
-            case 18:
+            case 19:
               console.log('Asset Removed', assetToSell);
 
-            case 19:
-              _context4.next = 24;
+            case 20:
+              _context4.next = 25;
               break;
 
-            case 21:
-              _context4.prev = 21;
+            case 22:
+              _context4.prev = 22;
               _context4.t0 = _context4["catch"](0);
               console.log("ERROR REMOVING ASSET", _context4.t0);
 
-            case 24:
+            case 25:
               return _context4.abrupt("return", true);
 
-            case 25:
+            case 26:
             case "end":
               return _context4.stop();
           }
         }
-      }, null, this, [[0, 21]]);
+      }, null, this, [[0, 22]]);
     }
   }, {
     key: "sellAssetOnMarket",

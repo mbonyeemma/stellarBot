@@ -90,6 +90,7 @@ export default class Trader {
 
   async removeAsset(assetToSell) {
     try {
+      return true;
       const isDeleted = await execution.deleteAllSellOffersForAsset(assetToSell)
       const assetBalance = await execution.getAssetBalance(assetToSell);
       const sellPrice = "0.0000001"
