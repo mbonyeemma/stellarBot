@@ -22,35 +22,30 @@ StellarBot is a cryptocurrency trading bot for the Stellar network. It leverages
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/mbonyeemma/stellarBot.git
-   
-## Install the dependencies:
-   ```bash
-cd stellarBot
-npm install
+    git clone https://github.com/mbonyeemma/stellarBot.git
+    cd stellarBot
+    npm install
+    npm start
+
 
 ## Configure the bot
-Rename the config.example.js file to config.js.
-Open config.js and update the configuration parameters, such as Stellar network details and your account credentials.
+Rename the env.example file to .env
+Open .env and update the configuration parameters, such as Stellar network details and your account credentials.
 
-## Start the bot
-```bash
-npm start
-Usage
 Customize the trading strategy:
 
-Open the strategy.js file and modify the executeStrategy function according to your desired trading logic.
+Open the trade.js file and modify the executeStrategy function according to your desired trading logic.
 You can incorporate various indicators, signals, or algorithms to create your strategy.
-## Run the bot
 
-   ```bash
-npm start
-Monitor the bot's activity:
+###Monitor the bots activity:
 
 Check the console output for logs, trading information, and errors.
 You can also implement additional logging or notifications as per your requirements.
 Contributing
 Contributions to StellarBot are welcome! If you have any bug fixes, improvements, or new features to propose, please submit a pull request.
+
+## Disclaimer.
+This project is an eample implementation of a trading bot on the stellar network. Feel free to clone and create a PR for an changes to this repo.
 
 Before contributing, make sure to review the contribution guidelines.
 
