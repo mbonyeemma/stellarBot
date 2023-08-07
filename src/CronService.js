@@ -19,7 +19,7 @@ let isInit = true;
 export default class CronService {
   constructor() {
     this.assets = new AssetLookup();
-    //this.init();
+    this.init();
     this.placeInitialOrder();
     //this.offersCron();
     this.sellAssets();
@@ -174,7 +174,7 @@ export default class CronService {
   async updateBestAssets() {
     try {
       this.removeAssets();
-      const bestAssets = await this.assets.getBestAssetsToTrade(5);
+      const bestAssets = await this.assets.getBestAssetsToTrade(3);
       console.log("GOT THE BEST ASSETS", bestAssets);
       await redisClient.set(redis.bestAssetsKey, JSON.stringify(bestAssets));
       await redisClient.set(redis.lastUpdatedKey, Date.now());

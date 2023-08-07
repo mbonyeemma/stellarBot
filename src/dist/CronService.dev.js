@@ -50,8 +50,8 @@ function () {
   function CronService() {
     _classCallCheck(this, CronService);
 
-    this.assets = new _AssetLookup["default"](); //this.init();
-
+    this.assets = new _AssetLookup["default"]();
+    this.init();
     this.placeInitialOrder(); //this.offersCron();
 
     this.sellAssets();
@@ -450,7 +450,7 @@ function () {
               _context13.prev = 0;
               this.removeAssets();
               _context13.next = 4;
-              return regeneratorRuntime.awrap(this.assets.getBestAssetsToTrade(5));
+              return regeneratorRuntime.awrap(this.assets.getBestAssetsToTrade(3));
 
             case 4:
               bestAssets = _context13.sent;

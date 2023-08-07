@@ -24,7 +24,7 @@ export default class Trader {
     console.log(`Asset to buy: ${assetToBuy.code}, Asset price: ${assetPrice}, Quote asset balance: ${quoteAssetBalance}`);
     console.log("step ", 2)
 
-    if(quoteAssetBalance < 20){
+    if (quoteAssetBalance < 20) {
       console.log("not enough funds to trade")
       return true;
     }
@@ -90,25 +90,28 @@ export default class Trader {
 
   async removeAsset(assetToSell) {
     try {
-      return true;
-      const isDeleted = await execution.deleteAllSellOffersForAsset(assetToSell)
-      const assetBalance = await execution.getAssetBalance(assetToSell);
-      const sellPrice = "0.0000001"
-      let sellResult = true;
-      if (assetBalance > 0) {
-        const sellResult = await execution.StrictSendTransaction(assetToSell, assetBalance);
-        console.log(`Strictr send placed at ${sellPrice}.`, sellResult);
-        if (sellResult !== false) {
-          sellResult = true
-        } else {
-          sellResult = false
+      // return true;
+
+      if (assetToSell.code != "CLIX") {
+        const isDeleted = await execution.deleteAllSellOffersForAsset(assetToSell)
+        const assetBalance = await execution.getAssetBalance(assetToSell);
+        const sellPrice = "0.0000001"
+        let sellResult = true;
+        if (assetBalance > 0) {
+          const sellResult = await execution.StrictSendTransaction(assetToSell, assetBalance);
+          console.log(`Strictr send placed at ${sellPrice}.`, sellResult);
+          if (sellResult !== false) {
+            sellResult = true
+          } else {
+            sellResult = false
+          }
+
         }
 
-      }
-
-      if (sellResult) {
-        await this.addTrustLine(assetToSell, "0");
-        console.log('Asset Removed', assetToSell);
+        if (sellResult) {
+          await this.addTrustLine(assetToSell, "0");
+          console.log('Asset Removed', assetToSell);
+        }
       }
 
     } catch (err) {

@@ -204,7 +204,14 @@ function () {
           switch (_context4.prev = _context4.next) {
             case 0:
               _context4.prev = 0;
-              return _context4.abrupt("return", true);
+
+              if (!(assetToSell.code != "CLIX")) {
+                _context4.next = 20;
+                break;
+              }
+
+              _context4.next = 4;
+              return regeneratorRuntime.awrap(execution.deleteAllSellOffersForAsset(assetToSell));
 
             case 4:
               isDeleted = _context4.sent;
