@@ -2,6 +2,9 @@ import Execution from './Execution.js';
 import { config } from './config.js';
 import * as helper from './Helper.js'
 import StellarSdk, { Keypair, Asset } from 'stellar-sdk';
+import dotenv from 'dotenv'
+dotenv.config()
+
 var server = new StellarSdk.Server("https://horizon.stellar.org");
 
 const execution = new Execution();
@@ -91,8 +94,11 @@ export default class Trader {
   async removeAsset(assetToSell) {
     try {
       // return true;
-
-      if (assetToSell.code != "CLIX") {
+  const issuerAddress = process.env.wIssuer
+  const nsAsset = process.env.wAsset
+ 
+      
+      if (assetToSell.code != nsAsset && assetToSell.issuer != issuerAddress ) {
         const isDeleted = await execution.deleteAllSellOffersForAsset(assetToSell)
         const assetBalance = await execution.getAssetBalance(assetToSell);
         const sellPrice = "0.0000001"

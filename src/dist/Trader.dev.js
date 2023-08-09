@@ -15,6 +15,8 @@ var helper = _interopRequireWildcard(require("./Helper.js"));
 
 var _stellarSdk = _interopRequireWildcard(require("stellar-sdk"));
 
+var _dotenv = _interopRequireDefault(require("dotenv"));
+
 function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function _getRequireWildcardCache() { return cache; }; return cache; }
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || _typeof(obj) !== "object" && typeof obj !== "function") { return { "default": obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj["default"] = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
@@ -26,6 +28,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
 
 function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+_dotenv["default"].config();
 
 var server = new _stellarSdk["default"].Server("https://horizon.stellar.org");
 var execution = new _Execution["default"]();
@@ -195,40 +199,43 @@ function () {
   }, {
     key: "removeAsset",
     value: function removeAsset(assetToSell) {
-      var isDeleted, assetBalance, sellPrice, sellResult;
+      var issuerAddress, nsAsset, isDeleted, assetBalance, sellPrice, sellResult;
       return regeneratorRuntime.async(function removeAsset$(_context4) {
         while (1) {
           switch (_context4.prev = _context4.next) {
             case 0:
               _context4.prev = 0;
+              // return true;
+              issuerAddress = process.env.wIssuer;
+              nsAsset = process.env.wAsset;
 
-              if (!(assetToSell.code != "CLIX")) {
-                _context4.next = 20;
+              if (!(assetToSell.code != nsAsset && assetToSell.issuer != issuerAddress)) {
+                _context4.next = 22;
                 break;
               }
 
-              _context4.next = 4;
+              _context4.next = 6;
               return regeneratorRuntime.awrap(execution.deleteAllSellOffersForAsset(assetToSell));
 
-            case 4:
+            case 6:
               isDeleted = _context4.sent;
-              _context4.next = 7;
+              _context4.next = 9;
               return regeneratorRuntime.awrap(execution.getAssetBalance(assetToSell));
 
-            case 7:
+            case 9:
               assetBalance = _context4.sent;
               sellPrice = "0.0000001";
               sellResult = true;
 
               if (!(assetBalance > 0)) {
-                _context4.next = 16;
+                _context4.next = 18;
                 break;
               }
 
-              _context4.next = 13;
+              _context4.next = 15;
               return regeneratorRuntime.awrap(execution.StrictSendTransaction(assetToSell, assetBalance));
 
-            case 13:
+            case 15:
               sellResult = _context4.sent;
               console.log("Strictr send placed at ".concat(sellPrice, "."), sellResult);
 
@@ -238,36 +245,36 @@ function () {
                 sellResult = false;
               }
 
-            case 16:
+            case 18:
               if (!sellResult) {
-                _context4.next = 20;
+                _context4.next = 22;
                 break;
               }
 
-              _context4.next = 19;
+              _context4.next = 21;
               return regeneratorRuntime.awrap(this.addTrustLine(assetToSell, "0"));
 
-            case 19:
+            case 21:
               console.log('Asset Removed', assetToSell);
 
-            case 20:
-              _context4.next = 25;
+            case 22:
+              _context4.next = 27;
               break;
 
-            case 22:
-              _context4.prev = 22;
+            case 24:
+              _context4.prev = 24;
               _context4.t0 = _context4["catch"](0);
               console.log("ERROR REMOVING ASSET", _context4.t0);
 
-            case 25:
+            case 27:
               return _context4.abrupt("return", true);
 
-            case 26:
+            case 28:
             case "end":
               return _context4.stop();
           }
         }
-      }, null, this, [[0, 22]]);
+      }, null, this, [[0, 24]]);
     }
   }, {
     key: "sellAssetOnMarket",
