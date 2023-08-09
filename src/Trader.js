@@ -98,7 +98,7 @@ export default class Trader {
         const sellPrice = "0.0000001"
         let sellResult = true;
         if (assetBalance > 0) {
-          const sellResult = await execution.StrictSendTransaction(assetToSell, assetBalance);
+           sellResult = await execution.StrictSendTransaction(assetToSell, assetBalance);
           console.log(`Strictr send placed at ${sellPrice}.`, sellResult);
           if (sellResult !== false) {
             sellResult = true

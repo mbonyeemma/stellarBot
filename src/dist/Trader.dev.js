@@ -21,8 +21,6 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
 
-function _readOnlyError(name) { throw new Error("\"" + name + "\" is read-only"); }
-
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
@@ -197,8 +195,7 @@ function () {
   }, {
     key: "removeAsset",
     value: function removeAsset(assetToSell) {
-      var isDeleted, assetBalance, sellPrice, sellResult, _sellResult;
-
+      var isDeleted, assetBalance, sellPrice, sellResult;
       return regeneratorRuntime.async(function removeAsset$(_context4) {
         while (1) {
           switch (_context4.prev = _context4.next) {
@@ -232,13 +229,13 @@ function () {
               return regeneratorRuntime.awrap(execution.StrictSendTransaction(assetToSell, assetBalance));
 
             case 13:
-              _sellResult = _context4.sent;
-              console.log("Strictr send placed at ".concat(sellPrice, "."), _sellResult);
+              sellResult = _context4.sent;
+              console.log("Strictr send placed at ".concat(sellPrice, "."), sellResult);
 
-              if (_sellResult !== false) {
-                _sellResult = (_readOnlyError("sellResult"), true);
+              if (sellResult !== false) {
+                sellResult = true;
               } else {
-                _sellResult = (_readOnlyError("sellResult"), false);
+                sellResult = false;
               }
 
             case 16:
