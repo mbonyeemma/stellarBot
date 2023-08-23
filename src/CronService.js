@@ -28,47 +28,45 @@ export default class CronService {
       await redisClient.del(redis.bestAssetsKey);
       console.log("Starting service to update best assets...");
       const bestAssetsJSON = await redisClient.get(redis.bestAssetsKey);
-  
+
       // Run tasks every 30 seconds
       setInterval(async () => {
         const currentDate = new Date();
         const currentMinute = currentDate.getMinutes();
         const currentSecond = currentDate.getSeconds();
         console.log("currentMinute", currentMinute);
-  
+
         const settings = await tradeHelper.getSettings();
         if (settings && settings.status === 'stop') {
           console.log("Bot is stopped");
           return;
         }
-  
+
         if (settings && settings.status === 'liquidate') {
           console.log("Bot is in liquidation process");
           await this.sellAssetOnMarket("");
           return;
         }
-  
-        // Run every minute (at the start of the minute, when seconds are 0)
-          await this.updateBestAssets();
+
+
+
+        console.log("Updating assets")
+        await this.updateBestAssets();
+
+        console.log("Getting Buy Assets")
+        await this.buyAssets();
         
-  
-        // Run every 5 minutes (at the start of the minute, when seconds are 0)
-        if (currentMinute % 5 === 0 && currentSecond === 0) {
-          await this.buyAssets();
-        }
-  
-        // Run every 2 minutes (but not when it's also divisible by 5)
-        // This will also run at the start of the minute, when seconds are 0
-        if (currentMinute % 2 === 0 && currentMinute % 5 !== 0 && currentSecond === 0) {
-          await this.sellAssetOnMarket("");
-        }
+        //selling assets on market
+        await this.sellAssetOnMarket("");
+
+
       }, 60000);  // 30000 milliseconds = 30 seconds
-  
+
     } catch (error) {
       console.error("REDIS ERROR", error);
     }
   }
-  
+
 
   // You can remove the separate methods for placeInitialOrder and sellAssets since they are now consolidated into startBot
 
@@ -83,7 +81,7 @@ export default class CronService {
       const bestAssets = JSON.parse(bestAssetsJSON);
       for (const element of bestAssets) {
         const assetObj = new StellarSdk.Asset(element.code, element.issuer);
-        await this.trader.startBot(assetObj);  // Assuming startBot is a method of trader
+        await this.trader.init(assetObj);  // Assuming startBot is a method of trader
       }
     }
   }
@@ -96,14 +94,14 @@ export default class CronService {
         const issuer = balance.asset_issuer;
         const assetBalance = parseFloat(balance.balance);
 
-        console.log("asset", asset, issuer,assetBalance)
+        console.log("asset", asset, issuer, assetBalance)
         const assetData = await tradeHelper.GetAsset(asset, issuer);
-         tradeHelper.saveBalances(asset, issuer, "");
+        tradeHelper.saveBalances(asset, issuer, "");
 
         if ((assetData && assetData.status === 'remove') || assetBalance < 5) {
           const sellAsset = this.execution.createAsset(asset, issuer);
           await this.trader.removeAsset(sellAsset);
-           tradeHelper.saveBalances(asset, issuer, "remove");
+          tradeHelper.saveBalances(asset, issuer, "remove");
         }
       }
     }
