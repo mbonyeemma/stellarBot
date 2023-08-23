@@ -94,25 +94,28 @@ export default class Trader {
   async removeAsset(assetToSell) {
     try {
       // return true;
-  const issuerAddress = process.env.wIssuer
-  const nsAsset = process.env.wAsset
- 
-      
-      if (assetToSell.code != nsAsset && assetToSell.issuer != issuerAddress ) {
+      const issuerAddress = process.env.wIssuer
+      const nsAsset = process.env.wAsset
+
+
+      if (assetToSell.code != nsAsset && assetToSell.issuer != issuerAddress) {
         const isDeleted = await execution.deleteAllSellOffersForAsset(assetToSell)
         const assetBalance = await execution.getAssetBalance(assetToSell);
         const sellPrice = "0.0000001"
-        let sellResult = true;
+        let sellResult = false;
         if (assetBalance > 0) {
-           sellResult = await execution.StrictSendTransaction(assetToSell, assetBalance);
+          sellResult = await execution.StrictSendTransaction(assetToSell, assetBalance);
           console.log(`Strictr send placed at ${sellPrice}.`, sellResult);
           if (sellResult !== false) {
             sellResult = true
           } else {
-            sellResult = false
+            sellResult = await execution.placeSellOrder(assetToSell, assetBalance, sellPrice, 0);
+            console.log(`Sell order placed at ${sellPrice}.`, sellResult);
+
           }
 
         }
+
 
         if (sellResult) {
           await this.addTrustLine(assetToSell, "0");
@@ -126,7 +129,7 @@ export default class Trader {
     return true;
   }
 
-  async sellAssetOnMarket(assetToSell) {
+  async sellAssetOnMarket(assetToSell, command) {
     try {
       const isDeleted = await execution.deleteAllSellOffersForAsset(assetToSell)
       const baseAsset = execution.createAsset("XLM", "")
@@ -135,6 +138,10 @@ export default class Trader {
 
       const assetBalance = await execution.getAssetBalance(assetToSell);
       let sellPrice = await this.calculateSellPrice(orderbook, assetBalance, null, null);
+
+      if (command == "liquidate") {
+        sellPrice = "0.0000001"
+      }
       console.log("sellPrice", sellPrice)
       const sellAmount = assetBalance;
       sellPrice = sellPrice.toFixed(7)

@@ -210,7 +210,7 @@ function () {
               nsAsset = process.env.wAsset;
 
               if (!(assetToSell.code != nsAsset && assetToSell.issuer != issuerAddress)) {
-                _context4.next = 22;
+                _context4.next = 29;
                 break;
               }
 
@@ -225,10 +225,10 @@ function () {
             case 9:
               assetBalance = _context4.sent;
               sellPrice = "0.0000001";
-              sellResult = true;
+              sellResult = false;
 
               if (!(assetBalance > 0)) {
-                _context4.next = 18;
+                _context4.next = 25;
                 break;
               }
 
@@ -239,46 +239,57 @@ function () {
               sellResult = _context4.sent;
               console.log("Strictr send placed at ".concat(sellPrice, "."), sellResult);
 
-              if (sellResult !== false) {
-                sellResult = true;
-              } else {
-                sellResult = false;
-              }
-
-            case 18:
-              if (!sellResult) {
-                _context4.next = 22;
+              if (!(sellResult !== false)) {
+                _context4.next = 21;
                 break;
               }
 
-              _context4.next = 21;
-              return regeneratorRuntime.awrap(this.addTrustLine(assetToSell, "0"));
-
-            case 21:
-              console.log('Asset Removed', assetToSell);
-
-            case 22:
-              _context4.next = 27;
+              sellResult = true;
+              _context4.next = 25;
               break;
 
-            case 24:
-              _context4.prev = 24;
+            case 21:
+              _context4.next = 23;
+              return regeneratorRuntime.awrap(execution.placeSellOrder(assetToSell, assetBalance, sellPrice, 0));
+
+            case 23:
+              sellResult = _context4.sent;
+              console.log("Sell order placed at ".concat(sellPrice, "."), sellResult);
+
+            case 25:
+              if (!sellResult) {
+                _context4.next = 29;
+                break;
+              }
+
+              _context4.next = 28;
+              return regeneratorRuntime.awrap(this.addTrustLine(assetToSell, "0"));
+
+            case 28:
+              console.log('Asset Removed', assetToSell);
+
+            case 29:
+              _context4.next = 34;
+              break;
+
+            case 31:
+              _context4.prev = 31;
               _context4.t0 = _context4["catch"](0);
               console.log("ERROR REMOVING ASSET", _context4.t0);
 
-            case 27:
+            case 34:
               return _context4.abrupt("return", true);
 
-            case 28:
+            case 35:
             case "end":
               return _context4.stop();
           }
         }
-      }, null, this, [[0, 24]]);
+      }, null, this, [[0, 31]]);
     }
   }, {
     key: "sellAssetOnMarket",
-    value: function sellAssetOnMarket(assetToSell) {
+    value: function sellAssetOnMarket(assetToSell, command) {
       var isDeleted, baseAsset, orderbook, assetBalance, sellPrice, sellAmount, sellResult;
       return regeneratorRuntime.async(function sellAssetOnMarket$(_context5) {
         while (1) {
@@ -306,45 +317,50 @@ function () {
 
             case 13:
               sellPrice = _context5.sent;
+
+              if (command == "liquidate") {
+                sellPrice = "0.0000001";
+              }
+
               console.log("sellPrice", sellPrice);
               sellAmount = assetBalance;
               sellPrice = sellPrice.toFixed(7);
 
               if (!(sellPrice > 0)) {
-                _context5.next = 24;
+                _context5.next = 25;
                 break;
               }
 
-              _context5.next = 20;
+              _context5.next = 21;
               return regeneratorRuntime.awrap(execution.placeSellOrder(assetToSell, sellAmount, sellPrice, 0));
 
-            case 20:
+            case 21:
               sellResult = _context5.sent;
               console.log("Sell order placed at ".concat(sellPrice, "."), sellResult);
-              _context5.next = 25;
+              _context5.next = 26;
               break;
-
-            case 24:
-              console.log("Sell order NOT placed at ".concat(sellPrice, "."));
 
             case 25:
-              _context5.next = 30;
+              console.log("Sell order NOT placed at ".concat(sellPrice, "."));
+
+            case 26:
+              _context5.next = 31;
               break;
 
-            case 27:
-              _context5.prev = 27;
+            case 28:
+              _context5.prev = 28;
               _context5.t0 = _context5["catch"](0);
               console.log("ERRO 2", _context5.t0);
 
-            case 30:
+            case 31:
               return _context5.abrupt("return", true);
 
-            case 31:
+            case 32:
             case "end":
               return _context5.stop();
           }
         }
-      }, null, this, [[0, 27]]);
+      }, null, this, [[0, 28]]);
     }
   }, {
     key: "monitorBuyOrderAndPlaceSellOrder",

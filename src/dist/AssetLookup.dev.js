@@ -1,23 +1,15 @@
 "use strict";
 
-function _typeof(obj) { if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
-
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports["default"] = void 0;
 
-var _stellarSdk = _interopRequireWildcard(require("stellar-sdk"));
-
-var _config = require("./config");
-
 var _axios = _interopRequireDefault(require("axios"));
 
+var _stellarSdk = _interopRequireDefault(require("stellar-sdk"));
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
-
-function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function _getRequireWildcardCache() { return cache; }; return cache; }
-
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || _typeof(obj) !== "object" && typeof obj !== "function") { return { "default": obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj["default"] = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
 
@@ -31,18 +23,22 @@ function _defineProperties(target, props) { for (var i = 0; i < props.length; i+
 
 function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
 
-var horizonServer = _config.config.horizonServer,
-    baseAsset = _config.config.baseAsset;
-var _quoteAsset = baseAsset;
-var server = new _stellarSdk["default"].Server("https://horizon.stellar.org");
-
 var AssetLookup =
 /*#__PURE__*/
 function () {
   function AssetLookup(server) {
     _classCallCheck(this, AssetLookup);
 
-    this.server = server;
+    this.server = server; // Configurable weights
+
+    this.weights = {
+      volume: 0.5,
+      // Adjusted to sum to 1
+      volatility: 0.4,
+      // Adjusted to sum to 1
+      margin: 0.1 // Adjusted to sum to 1
+
+    };
   }
 
   _createClass(AssetLookup, [{
@@ -93,13 +89,7 @@ function () {
             case 8:
               assetMetrics = _context2.sent;
               assetMetrics.sort(function (a, b) {
-                var volumeDiff = b.volume - a.volume;
-                var volatilityDiff = b.volatility - a.volatility;
-                var marginDiff = b.margin - a.margin;
-                var volumeWeight = 0.2;
-                var volatilityWeight = 0.8;
-                var marginWeight = 0.1;
-                return volumeWeight * volumeDiff + volatilityWeight * volatilityDiff + marginWeight * marginDiff;
+                return _this.weights.volume * (b.volume - a.volume) + _this.weights.volatility * (b.volatility - a.volatility) + _this.weights.margin * (b.margin - a.margin);
               });
               return _context2.abrupt("return", assetMetrics.slice(0, numAssets).map(function (metric) {
                 return metric.asset;
@@ -149,7 +139,8 @@ function () {
         while (1) {
           switch (_context4.prev = _context4.next) {
             case 0:
-              url = 'https://api.stellarterm.com/v1/ticker.json';
+              url = 'https://api.stellarterm.com/v1/ticker.json'; // Consider moving this to a configuration or environment variable
+
               _context4.next = 3;
               return regeneratorRuntime.awrap(_axios["default"].get(url));
 
@@ -161,6 +152,7 @@ function () {
                 break;
               }
 
+              // Consider adding more comments about the rationale behind these filters
               assets = response.data.assets;
               activeAssets = assets.filter(function (asset) {
                 return asset.price_USD < 1 && asset.activityScore > 10 && asset.activityScore < 20 && asset.volume24h_XLM < 200000;
@@ -195,7 +187,8 @@ function () {
           switch (_context5.prev = _context5.next) {
             case 0:
               quoteAsset = this.createAsset(asset.code, asset.issuer);
-              baseAsset = this.createAsset("XLM", ""); // Fetch trading volume
+              baseAsset = this.createAsset("XLM", ""); // Consider adding a comment about why XLM is the base asset
+              // Fetch trading volume
 
               _context5.next = 4;
               return regeneratorRuntime.awrap(this.fetchTradingVolume(baseAsset, quoteAsset));
@@ -240,8 +233,8 @@ function () {
         while (1) {
           switch (_context6.prev = _context6.next) {
             case 0:
-              startTime = Date.now() - 24 * 60 * 60 * 1000; // 24 hours ago
-
+              // Consider adding error handling or retry logic if the Stellar SDK server fails to respond
+              startTime = Date.now() - 24 * 60 * 60 * 1000;
               endTime = Date.now();
               resolution = 3600000;
               console.log("fetchTradingVolume", quoteAsset.code);
@@ -249,7 +242,7 @@ function () {
               totalVolume = 0;
               _context6.prev = 6;
               _context6.next = 9;
-              return regeneratorRuntime.awrap(server.tradeAggregation(baseAsset, quoteAsset, startTime, endTime, resolution, offset).call());
+              return regeneratorRuntime.awrap(this.server.tradeAggregation(baseAsset, quoteAsset, startTime, endTime, resolution, offset).call());
 
             case 9:
               trRsp = _context6.sent;
@@ -272,7 +265,7 @@ function () {
               return _context6.stop();
           }
         }
-      }, null, null, [[6, 13]]);
+      }, null, this, [[6, 13]]);
     }
   }, {
     key: "fetchPriceHistory",
@@ -282,15 +275,14 @@ function () {
         while (1) {
           switch (_context7.prev = _context7.next) {
             case 0:
-              startTime = Date.now() - 7 * 24 * 60 * 60 * 1000; // 7 days ago
-
+              // Consider adding error handling or retry logic if the Stellar SDK server fails to respond
+              startTime = Date.now() - 7 * 24 * 60 * 60 * 1000;
               endTime = Date.now();
-              resolution = 24 * 60 * 60 * 1000; // 1-day resolution
-
+              resolution = 24 * 60 * 60 * 1000;
               offset = 0;
               _context7.prev = 4;
               _context7.next = 7;
-              return regeneratorRuntime.awrap(server.tradeAggregation(baseAsset, quoteAsset, startTime, endTime, resolution, offset).call());
+              return regeneratorRuntime.awrap(this.server.tradeAggregation(baseAsset, quoteAsset, startTime, endTime, resolution, offset).call());
 
             case 7:
               tradeAggregation = _context7.sent;
@@ -310,11 +302,12 @@ function () {
               return _context7.stop();
           }
         }
-      }, null, null, [[4, 12]]);
+      }, null, this, [[4, 12]]);
     }
   }, {
     key: "calculateVolatility",
     value: function calculateVolatility(priceHistory) {
+      // Consider adding more sophisticated volatility measures or metrics
       if (priceHistory.length < 2) {
         return 0;
       }
@@ -341,7 +334,7 @@ function () {
           switch (_context8.prev = _context8.next) {
             case 0:
               _context8.next = 2;
-              return regeneratorRuntime.awrap(server.orderbook(baseAsset, quoteAsset).call());
+              return regeneratorRuntime.awrap(this.server.orderbook(baseAsset, quoteAsset).call());
 
             case 2:
               orderbook = _context8.sent;
@@ -354,10 +347,8 @@ function () {
               return _context8.abrupt("return", 0);
 
             case 5:
-              // Get the best bid and ask prices
               bestBidPrice = parseFloat(orderbook.bids[0].price);
-              bestAskPrice = parseFloat(orderbook.asks[0].price); // Calculate the margin as a percentage
-
+              bestAskPrice = parseFloat(orderbook.asks[0].price);
               margin = (bestAskPrice - bestBidPrice) / bestBidPrice;
               return _context8.abrupt("return", margin);
 
@@ -366,7 +357,7 @@ function () {
               return _context8.stop();
           }
         }
-      });
+      }, null, this);
     }
   }]);
 
