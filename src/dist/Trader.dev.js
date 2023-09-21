@@ -199,7 +199,7 @@ function () {
   }, {
     key: "removeAsset",
     value: function removeAsset(assetToSell) {
-      var issuerAddress, nsAsset, isDeleted, assetBalance, sellPrice, sellResult;
+      var issuerAddress, nsAsset, isDeleted, assetBalance, sellPrice, sellResult, assetNewBalance;
       return regeneratorRuntime.async(function removeAsset$(_context4) {
         while (1) {
           switch (_context4.prev = _context4.next) {
@@ -210,7 +210,7 @@ function () {
               nsAsset = process.env.wAsset;
 
               if (!(assetToSell.code != nsAsset && assetToSell.issuer != issuerAddress)) {
-                _context4.next = 29;
+                _context4.next = 36;
                 break;
               }
 
@@ -227,8 +227,8 @@ function () {
               sellPrice = "0.0000001";
               sellResult = false;
 
-              if (!(assetBalance > 0)) {
-                _context4.next = 25;
+              if (!(assetBalance > 1)) {
+                _context4.next = 29;
                 break;
               }
 
@@ -257,35 +257,53 @@ function () {
               console.log("Sell order placed at ".concat(sellPrice, "."), sellResult);
 
             case 25:
-              if (!sellResult) {
+              if (!(sellResult == false)) {
                 _context4.next = 29;
                 break;
               }
 
               _context4.next = 28;
-              return regeneratorRuntime.awrap(this.addTrustLine(assetToSell, "0"));
+              return regeneratorRuntime.awrap(execution.placeSellOrder(assetToSell, assetBalance, sellPrice, 0));
 
             case 28:
-              console.log('Asset Removed', assetToSell);
+              sellResult = _context4.sent;
 
             case 29:
-              _context4.next = 34;
-              break;
+              _context4.next = 31;
+              return regeneratorRuntime.awrap(execution.getAssetBalance(assetToSell));
 
             case 31:
-              _context4.prev = 31;
+              assetNewBalance = _context4.sent;
+
+              if (!(assetNewBalance == 0)) {
+                _context4.next = 36;
+                break;
+              }
+
+              _context4.next = 35;
+              return regeneratorRuntime.awrap(this.addTrustLine(assetToSell, "0"));
+
+            case 35:
+              console.log('Asset Removed', assetToSell);
+
+            case 36:
+              _context4.next = 41;
+              break;
+
+            case 38:
+              _context4.prev = 38;
               _context4.t0 = _context4["catch"](0);
               console.log("ERROR REMOVING ASSET", _context4.t0);
 
-            case 34:
+            case 41:
               return _context4.abrupt("return", true);
 
-            case 35:
+            case 42:
             case "end":
               return _context4.stop();
           }
         }
-      }, null, this, [[0, 31]]);
+      }, null, this, [[0, 38]]);
     }
   }, {
     key: "sellAssetOnMarket",

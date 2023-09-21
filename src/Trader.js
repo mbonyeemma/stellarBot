@@ -103,7 +103,7 @@ export default class Trader {
         const assetBalance = await execution.getAssetBalance(assetToSell);
         const sellPrice = "0.0000001"
         let sellResult = false;
-        if (assetBalance > 0) {
+        if (assetBalance > 1) {
           sellResult = await execution.StrictSendTransaction(assetToSell, assetBalance);
           console.log(`Strictr send placed at ${sellPrice}.`, sellResult);
           if (sellResult !== false) {
@@ -111,13 +111,16 @@ export default class Trader {
           } else {
             sellResult = await execution.placeSellOrder(assetToSell, assetBalance, sellPrice, 0);
             console.log(`Sell order placed at ${sellPrice}.`, sellResult);
-
           }
 
+          if(sellResult == false){
+            sellResult = await execution.placeSellOrder(assetToSell, assetBalance, sellPrice, 0);
+          }
         }
 
+        const assetNewBalance = await execution.getAssetBalance(assetToSell);
 
-        if (sellResult) {
+        if (assetNewBalance == 0) {
           await this.addTrustLine(assetToSell, "0");
           console.log('Asset Removed', assetToSell);
         }
