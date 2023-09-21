@@ -264,10 +264,9 @@ function (_BaseModel) {
             case 12:
               _context8.prev = 12;
               _context8.t0 = _context8["catch"](0);
-              console.log("Add DB Error", _context8.t0);
               return _context8.abrupt("return", false);
 
-            case 16:
+            case 15:
             case "end":
               return _context8.stop();
           }

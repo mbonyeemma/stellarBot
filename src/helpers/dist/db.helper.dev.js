@@ -58,7 +58,7 @@ function () {
         return new Promise(function (resolve, reject) {
           pdoConnect.getConnection(function (err, connection) {
             if (err) {
-              console.log(err);
+              // console.log(err);
               return reject(err);
             }
 
@@ -70,8 +70,7 @@ function () {
             });
           });
         });
-      } catch (err) {
-        console.log(err);
+      } catch (err) {//  console.log(err)
       }
     }
   }, {

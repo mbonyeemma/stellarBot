@@ -85,7 +85,7 @@ class TradeHelper extends BaseModel {
             await this.inserData("trading_assets", inData);
             return true;
         } catch (error) {
-            console.log("Add DB Error", error);
+           // console.log("Add DB Error", error);
             return false;
         }
     }

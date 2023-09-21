@@ -36,7 +36,7 @@ class DbHelper {
     return new Promise((resolve, reject) => {
       pdoConnect.getConnection((err, connection) => {
         if (err) {
-          console.log(err);
+         // console.log(err);
           return reject(err);
         }
 
@@ -49,7 +49,7 @@ class DbHelper {
       });
     });
   }catch(err){
-    console.log(err)
+  //  console.log(err)
   }
 }
 
