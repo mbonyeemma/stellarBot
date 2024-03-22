@@ -1,8 +1,98 @@
 import BaseModel from "./base.model";
+
+
 class TradeHelper extends BaseModel {
     constructor() {
-        super("identities");
+        super(); // Calls the constructor of the base class (BaseModel)
     }
+
+    async saveOrderDetails(orderType, orderId, sellingAsset, buyingAsset, price, amount, lastHighProfit, status = 'pending') {
+        const orderDetails = {
+            offer_id: orderId,
+            order_type: orderType,
+            selling_asset: sellingAsset,
+            buying_asset: buyingAsset,
+            ex_rate: price,
+            selling_amount: amount,
+            lastHightProfit: lastHighProfit,
+            status: status
+                };
+        try {
+            const tableName = orderType === 'buy' ? 'buy_offers' : 'sell_offers';
+            await this.inserData(tableName, orderDetails);
+        } catch (err) {
+            console.error(`Error adding order ID ${orderId}: ${err.message}`);
+        }
+    }
+
+    async removeOrderId(orderId) {
+        try {
+            await this.deleteRecord('orders', `offer_id='${orderId}'`);
+        } catch (err) {
+            console.error(`Error removing order ID ${orderId}: ${err.message}`);
+        }
+    }
+
+    async updateOrderStatus(orderId, status) {
+        const orderDetails = { status: status };
+        try {
+            await this.updateRecords('orders', orderDetails, `offer_id='${orderId}'`);
+        } catch (err) {
+            console.error(`Error updating order status for order ID ${orderId}: ${err.message}`);
+        }
+    }
+
+    async updateLastHighProfit(orderId, lastHighProfit) {
+        try {
+            await this.updateRecords('orders', { last_high_profit: lastHighProfit }, `offer_id='${orderId}'`);
+        } catch (err) {
+            console.error(`Error updating last high profit for order ID ${orderId}: ${err.message}`);
+        }
+    }
+
+    async getActiveOrders(orderType) {
+        try {
+            const tableName = orderType === 'buy' ? 'buy_offers' : 'sell_offers';
+            return await this.selectRecords(tableName, "status='active'");
+        } catch (err) {
+            console.error(`Error retrieving active ${orderType} orders: ${err.message}`);
+            return [];
+        }
+    }
+
+    async retrieveOrderDetails(orderId) {
+        try {
+            const orderDetails = await this.selectRecords('orders', `offer_id='${orderId}'`);
+            return orderDetails.length > 0 ? orderDetails[0] : null;
+        } catch (err) {
+            console.error(`Error retrieving order details for order ID ${orderId}: ${err.message}`);
+            return null;
+        }
+    }
+
+    async insertAsset(assetCode, assetIssue, assetType = 'basic', status = 'active') {
+        const assetDetails = {
+            asset_code: assetCode,
+            asset_issue: assetIssue,
+            asset_type: assetType,
+            status: status,
+            // `added_at` is automatically set to CURRENT_TIMESTAMP by the database, so we don't need to include it here.
+        };
+        try {
+            await this.inserData('trading_assets', assetDetails); // Assuming 'assets' is the name of your table
+            console.log('Asset inserted successfully');
+            return true;
+        } catch (err) {
+            console.error(`Error inserting asset: ${err.message}`);
+            return false;
+        }
+    }
+
+    async getSavedAsset(asset) {
+        return await this.callQuery(`select * from trading_assets where asset_code='${asset}' `)
+
+    }
+
 
     async removeAppSettingItem(itemId) {
         try {
@@ -31,7 +121,7 @@ class TradeHelper extends BaseModel {
         }
     }
 
-    
+
 
     async GetAccounts(currency) {
         try {
@@ -77,15 +167,16 @@ class TradeHelper extends BaseModel {
             if (action === 'remove') {
                 const rs = await this.callQuery(`DELETE FROM trading_assets where asset_code = '${asset}' AND asset_issue = '${issuer}'`);
                 return true;
+            } else {
+                const inData = {
+                    asset_code: asset,
+                    asset_issue: issuer
+                };
+                await this.inserData("trading_assets", inData);
             }
-            const inData = {
-                asset_code: asset,
-                asset_issue: issuer
-            };
-            await this.inserData("trading_assets", inData);
             return true;
         } catch (error) {
-           // console.log("Add DB Error", error);
+            // console.log("Add DB Error", error);
             return false;
         }
     }

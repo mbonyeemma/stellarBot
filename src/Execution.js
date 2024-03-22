@@ -1,4 +1,4 @@
-import StellarSdk,{Asset} from 'stellar-sdk';
+import StellarSdk, { Asset } from 'stellar-sdk';
 import { config } from './config';
 import dotenv from 'dotenv'
 dotenv.config()
@@ -18,6 +18,51 @@ export default class Execution {
   async deleteBuyOrder(offerId) {
     return this.manageBuyOffer(null, 0, 1, offerId);
   }
+
+  async deleteOffer(offerId) {
+    try {
+      const keypair = StellarSdk.Keypair.fromSecret(config.secretKey);
+      const account = await server.loadAccount(keypair.publicKey());
+  
+      const [
+        {
+          max_fee: { mode: fee },
+        },
+      ] = await Promise.all([server.feeStats()]);
+  
+      const transactionBuilder = new StellarSdk.TransactionBuilder(account, {
+        fee,
+        networkPassphrase: StellarSdk.Networks.PUBLIC,
+      });
+  
+      // Placeholder assets; specifics don't matter for deletion
+      const dummyAsset = StellarSdk.Asset.native();
+  
+      const offerObject = {
+        selling: dummyAsset,
+        buying: dummyAsset,
+        amount: "0",
+        price: "1", // Arbitrary since it's a deletion
+        offerId: offerId,
+      };
+  
+      const manageSellOfferOp = StellarSdk.Operation.manageSellOffer(offerObject);
+      transactionBuilder.addOperation(manageSellOfferOp);
+  
+      const transaction = transactionBuilder.setTimeout(100).build();
+      transaction.sign(keypair);
+  
+      const transactionResult = await server.submitTransaction(transaction);
+      console.log(transactionResult);
+  
+      return true;
+    } catch (error) {
+      console.error("Error deleting the offer:", error);
+      return false;
+    }
+  }
+  
+
 
   async deleteAllSellOffersForAsset(asset) {
     try {
@@ -187,6 +232,53 @@ export default class Execution {
       return false;
     }
   }
+  async updateOffer(offerId, sellingAsset, buyingAsset, amount, price) {
+    try {
+      const keypair = StellarSdk.Keypair.fromSecret(config.secretKey);
+      const account = await server.loadAccount(keypair.publicKey());
+  
+      // Fetch current fee from the network
+      const [
+        {
+          max_fee: { mode: fee },
+        },
+      ] = await Promise.all([server.feeStats()]);
+  
+      const transactionBuilder = new StellarSdk.TransactionBuilder(account, {
+        fee,
+        networkPassphrase: StellarSdk.Networks.PUBLIC,
+      });
+  
+      // Define the assets being sold and bought
+      const selling = new StellarSdk.Asset(sellingAsset.code, sellingAsset.issuer);
+      const buying = new StellarSdk.Asset(buyingAsset.code, buyingAsset.issuer);
+  
+      // Create the manage sell offer operation with the updated details
+      const manageSellOfferOp = StellarSdk.Operation.manageSellOffer({
+        selling: selling,
+        buying: buying,
+        amount: amount.toString(),
+        price: price.toString(),
+        offerId: offerId.toString(),
+      });
+  
+      transactionBuilder.addOperation(manageSellOfferOp);
+  
+      // Build and sign the transaction
+      const transaction = transactionBuilder.setTimeout(100).build();
+      transaction.sign(keypair);
+  
+      // Submit the transaction to the Stellar network
+      const transactionResult = await server.submitTransaction(transaction);
+      console.log(`Successfully updated offer with ID: ${offerId}`, transactionResult);
+  
+      return true;
+    } catch (error) {
+      console.error(`Error updating offer with ID: ${offerId}:`, error);
+      return false;
+    }
+  }
+  
 
   async placeSellOrder(assetToSell, amount, price, offerId = 0) {
     console.log("placeSellOrder", assetToSell, amount, price, offerId)
@@ -246,7 +338,7 @@ export default class Execution {
         sendAsset: sellingAsset,
         sendAmount: amount.toFixed(7).toString(),
         destination: senderKeypair.publicKey(),
-        destAsset: Asset.native(), 
+        destAsset: Asset.native(),
         destMin: "0.0000001",
       };
       console.log("sellArray", data);
@@ -330,6 +422,52 @@ export default class Execution {
       return null;
     }
   }
+
+  async getOfferById(offerId) {
+    try {
+      const offerResponse = await server.offers().offer(offerId).call();
+      if (!offerResponse) {
+        console.log(`Offer with ID ${offerId} not found.`);
+        return null;
+      }
+  
+      // Parsing and returning a simplified version of the offer details.
+      const offerDetails = {
+        offerId: offerResponse.id,
+        seller: offerResponse.seller,
+        sellingAsset: offerResponse.selling.asset_type === 'native' ? 'XLM:XLM' : `${offerResponse.selling.asset_code}:${offerResponse.selling.asset_issuer}`,
+        buyingAsset: offerResponse.buying.asset_type === 'native' ? 'XLM:XLM' : `${offerResponse.buying.asset_code}:${offerResponse.buying.asset_issuer}`,
+        amount: offerResponse.amount,
+        price: offerResponse.price,
+      };
+  
+      return offerDetails;
+    } catch (error) {
+      console.error(`Error fetching offer with ID ${offerId}:`, error);
+      return null;
+    }
+  }
+
+  
+  async getOpenOrders(accountId) {
+    try {
+      const offersResponse = await server.offers().forAccount(accountId).call();
+      const openOrders = offersResponse.records.map(offer => ({
+        offerId: offer.id,
+        sellingAsset: offer.selling.asset_type === 'native' ? 'XLM:XLM' : `${offer.selling.asset_code}:${offer.selling.asset_issuer}`,
+        buyingAsset: offer.buying.asset_type === 'native' ? 'XLM:XLM' : `${offer.buying.asset_code}:${offer.buying.asset_issuer}`,
+        amount: offer.amount,
+        price: offer.price,
+        type: offer.amount === "0" ? "sell" : "buy" // This might not be accurate for all use cases, further logic may be needed.
+      }));
+
+      return openOrders;
+    } catch (error) {
+      console.error('Error fetching open orders:', error);
+      return [];
+    }
+  }
+
 
 
 

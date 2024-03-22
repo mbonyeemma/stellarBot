@@ -27,7 +27,7 @@ export default class CronService {
     try {
       await redisClient.del(redis.bestAssetsKey);
       console.log("Starting service to update best assets...");
-      const bestAssetsJSON = await redisClient.get(redis.bestAssetsKey);
+      //const bestAssetsJSON = await redisClient.get(redis.bestAssetsKey);
 
       // Run tasks every 30 seconds
       setInterval(async () => {
@@ -53,25 +53,14 @@ export default class CronService {
         console.log("Updating assets")
         await this.updateBestAssets();
 
-        console.log("Getting Buy Assets")
-        await this.buyAssets();
-        
-        //selling assets on market
-        await this.sellAssetOnMarket("");
 
 
-      }, 60000);  // 30000 milliseconds = 30 seconds
+      }, 10000);  // 30000 milliseconds = 30 seconds
 
     } catch (error) {
       console.error("REDIS ERROR", error);
     }
   }
-
-
-  // You can remove the separate methods for placeInitialOrder and sellAssets since they are now consolidated into startBot
-
-
-
 
 
 
@@ -81,8 +70,54 @@ export default class CronService {
       const bestAssets = JSON.parse(bestAssetsJSON);
       for (const element of bestAssets) {
         const assetObj = new StellarSdk.Asset(element.code, element.issuer);
-        await this.trader.init(assetObj);  // Assuming startBot is a method of trader
+        await this.trader.init(assetObj);
       }
+    }
+  }
+
+
+
+  sellAssetOnMarket = async (command) => {
+    const balances = await this.execution.getBalances();
+    for (const balance of balances) {
+      if (balance.asset_type !== 'native' && parseFloat(balance.balance) > 0) {
+        const sellAsset = this.execution.createAsset(balance.asset_code, balance.asset_issuer);
+        await this.trader.sellAssetOnMarket(sellAsset, command);
+      }
+    }
+  }
+
+  offersWorker = async () => {
+
+    await this.trader.monitorOrders();
+
+
+
+  }
+
+  updateBestAssets = async () => {
+    try {
+      const balances = await this.execution.getBalances();
+      if (balances.length > 5) {
+        console.log(`IN SELLING MODE`)
+        return;
+      }
+
+      const bestAssets = await this.assets.getBestAssetsToTrade(3);
+      console.log("BestAssetsToTrade==>", bestAssets)
+      for (const element of bestAssets) {
+        const assetObj = new StellarSdk.Asset(element.code, element.issuer);
+        const asset = await tradeHelper.getSavedAsset(element.code);
+        if (asset.length == 0) {
+          tradeHelper.insertAsset(element.code, element.issuer)
+          await this.trader.init(assetObj);
+        } else {
+          this.trader.initialAssetSell();
+          console.log(`Asset is already saved, moving on`)
+        }
+      }
+    } catch (error) {
+      console.log("updateAssetsError", error);
     }
   }
 
@@ -96,54 +131,18 @@ export default class CronService {
 
         console.log("asset", asset, issuer, assetBalance)
         const assetData = await tradeHelper.GetAsset(asset, issuer);
-        tradeHelper.saveBalances(asset, issuer, "");
 
         if ((assetData && assetData.status === 'remove') || assetBalance < 5) {
           const sellAsset = this.execution.createAsset(asset, issuer);
           await this.trader.removeAsset(sellAsset);
-          tradeHelper.saveBalances(asset, issuer, "remove");
+
+        } else {
+          tradeHelper.saveBalances(asset, issuer, "");
         }
       }
     }
 
     return true;
   }
-
-  sellAssetOnMarket = async (command) => {
-    const balances = await this.execution.getBalances();
-    for (const balance of balances) {
-      if (balance.asset_type !== 'native' && parseFloat(balance.balance) > 0) {
-        const sellAsset = this.execution.createAsset(balance.asset_code, balance.asset_issuer);
-        await this.trader.sellAssetOnMarket(sellAsset, command);
-      }
-    }
-  }
-
-  // ... continuation ...
-
-  offersWorker = async () => {
-    const orders = await helper.getAllRunningOrders();
-    if (orders) {
-      for (const order_id of orders) {
-        const orderInfo = await helper.retrieveOrderDetails(order_id);
-        if (orderInfo) {
-          await this.trader.monitorBuyOrderAndPlaceSellOrder(orderInfo.asset, orderInfo.order_id, orderInfo.price);
-        }
-      }
-    }
-  }
-
-  updateBestAssets = async () => {
-    try {
-      await this.removeAssets();
-      const bestAssets = await this.assets.getBestAssetsToTrade(3);
-      await redisClient.set(redis.bestAssetsKey, JSON.stringify(bestAssets));
-      await redisClient.set(redis.lastUpdatedKey, Date.now());
-    } catch (error) {
-      console.log("updateAssetsError", error);
-    }
-  }
-
-
-
+  
 }

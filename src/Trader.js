@@ -1,6 +1,6 @@
 import Execution from './Execution.js';
 import { config } from './config.js';
-import * as helper from './Helper.js'
+import  tradeHelper from './helpers/trade.model.js'
 import StellarSdk, { Keypair, Asset } from 'stellar-sdk';
 import dotenv from 'dotenv'
 dotenv.config()
@@ -19,6 +19,12 @@ export default class Trader {
     if (!(await this.hasTrustLine(account, assetToBuy))) {
       console.log(`Adding trustline for asset: ${assetToBuy.code}`);
       await this.addTrustLine(assetToBuy, "100000000");
+    } else {
+      const bAssetBalance = await execution.getAssetBalance(assetToBuy.code);
+      if (bAssetBalance > 0) {
+        console.log("Asset is already on the account", bAssetBalance)
+        return true;
+      }
     }
 
     const assetPrice = await execution.getAssetPrice(assetToBuy);
@@ -28,7 +34,7 @@ export default class Trader {
     console.log("step ", 2)
 
     if (quoteAssetBalance < 20) {
-      console.log("not enough funds to trade")
+      console.log("not enough funds to trade", quoteAssetBalance)
       return true;
     }
 
@@ -41,8 +47,8 @@ export default class Trader {
     if (result !== false) {
       const isDeleted = await execution.deleteAllSellOffersForAsset(assetToBuy)
       if (isDeleted) {
-        helper.addOrderId(result)
-        helper.saveOrderDetails(result, assetToBuy.code, assetPrice, amount, 0);
+        // tradeHelper.addOrderId(result)
+        tradeHelper.saveOrderDetails("buy", result, "XLM", assetToBuy.code, assetPrice, amount, 0);
       }
       console.log("Offer saved to redis", { result, assetToBuy, assetPrice })
     }
@@ -113,7 +119,7 @@ export default class Trader {
             console.log(`Sell order placed at ${sellPrice}.`, sellResult);
           }
 
-          if(sellResult == false){
+          if (sellResult == false) {
             sellResult = await execution.placeSellOrder(assetToSell, assetBalance, sellPrice, 0);
           }
         }
@@ -164,93 +170,176 @@ export default class Trader {
     return true;
   }
 
-
-  async monitorBuyOrderAndPlaceSellOrder(assetToBuy, buyOrderId, buyPrice) {
+  async initialAssetSell() {
     try {
-      const existingDetails = await helper.retrieveOrderDetails(buyOrderId);
-      let minimumExitProfit = existingDetails.lastHightProfit;
-
-
-      const increment = (currentProfit) => {
-        return Math.floor((currentProfit - 0.01) * 100) / 100;
-      };
-
-      const updateMinimumExitProfit = async (currentProfit) => {
-        if (currentProfit >= minimumExitProfit) {
-          await helper.updateLastHighProfit(buyOrderId, currentProfit);
-          return currentProfit;
+      const balances = await execution.getBalances(this.publicKey);
+      for (const balance of balances) {
+        if (balance.asset_type !== 'native' && parseFloat(balance.balance) > 0) {
+          const assetDetails = balance.asset_type === 'credit_alphanum4' || balance.asset_type === 'credit_alphanum12' ?
+            `${balance.asset_code}:${balance.asset_issuer}` : 'XLM';
+          await this.sellAssetForProfit(assetDetails);
         }
-        return minimumExitProfit;
-      };
-
-      let assetPrice;
-      const isDeleted = await execution.deleteAllSellOffersForAsset(assetToBuy)
-
-
-      const orderbook = await server.orderbook(config.quoteAsset, assetToBuy).call();
-
-      const AssetBalance = await execution.getAssetBalance(assetToBuy);
-      const sellPrice = this.calculateSellPrice(orderbook, AssetBalance, buyPrice)
-      assetPrice = parseFloat(orderbook.bids[0].price);
-      const sellAmount = (0.5 * AssetBalance).toFixed(6)
-
-      const currentProfit = (assetPrice - buyPrice) / buyPrice;
-
-
-      const sellResult = await execution.placeSellOrder(assetToBuy, sellAmount, sellPrice, 0);
-      sellOfferId = sellResult;
-      console.log(`Sell order placed at ${sellPrice}. Profit: ${minimumExitProfit * 100}%`, sellResult);
-
-      minimumExitProfit = updateMinimumExitProfit(currentProfit);
-
-      return minimumExitProfit;
+      }
     } catch (error) {
-      console.log("MONITOR ERROR", error)
+      console.error("Error selling assets:", error);
     }
   }
 
-  async calculateSellPrice(orderbook, amount, Price) {
-    let accumulatedAmount = 0;
-    let topBuyPrice = Price;
-    let topBuyAmount = amount;
-    for (let i = 0; i < orderbook.asks.length; i++) {
-      const buy = orderbook.asks[i];
-      accumulatedAmount += parseFloat(buy.amount);
 
-      console.log("accumulatedAmount", accumulatedAmount)
+  async sellAssetForProfit(sellingAssetDetails) {
+    try {
 
+      console.log("SELL===>", sellingAssetDetails)
+      const [sellingAssetCode, sellingAssetIssuer] = sellingAssetDetails.split(':');
+      const asset = new StellarSdk.Asset(sellingAssetCode, sellingAssetIssuer === 'XLM' ? undefined : sellingAssetIssuer);
 
-      if (accumulatedAmount >= amount * 0.3) {
-        topBuyPrice = parseFloat(buy.price);
-        topBuyAmount = accumulatedAmount;
-        break;
+      const publicKey = config.publicKey;
+      const openOrders = await execution.getOpenOrders(publicKey);
+      const relevantOrder = openOrders.find(order => order.sellingAsset === sellingAssetDetails);
+
+      if (!relevantOrder) {
+        // If no relevant selling order, consider creating a new sell order based on market conditions
+        const orderbook = await server.orderbook(asset, new StellarSdk.Asset('XLM')).call();
+        const assetBalance = await execution.getAssetBalance(asset);
+        const sellPrice = await this.calculateSellPrice(orderbook, assetBalance);
+
+        if (assetBalance > 0) {
+
+          await tradeHelper.saveOrderDetails("buy", "0x00000", "XLM", sellingAssetCode, sellPrice, assetBalance, sellPrice, 'completed');
+          const sellResult = await execution.placeSellOrder(asset, assetBalance, sellPrice);
+          console.log(`Sell order placed for ${sellingAssetDetails} at ${sellPrice}:`, sellResult);
+          await tradeHelper.saveOrderDetails("sell", sellResult, sellingAssetCode, "XLM", sellPrice, assetBalance, 0);
+        }
+      } else {
+        console.log(`Existing order found for ${sellingAssetDetails}, monitoring...`);
+        // Here you might monitor the order or adjust it based on new market conditions
       }
+    } catch (error) {
+      console.error("Error in sellAssetForProfit:", error);
+    }
+  }
+
+
+  async TrackBuyOffers() {
+    try {
+      const openOrders = await tradeHelper.getBuyOffers();
+      for (const order of openOrders) {
+        const offerId = order.offerId
+        const offer = await execution.getOfferById(offerId);
+        if (offer == null || offer == undefined) { // Order not available in DB, delete it
+          console.log(`Offer ${offerId} not found in DB, deleting it.`);
+          tradeHelper.updateOrderStatus(offerId, 'closed');
+          return;
+        }
+        await this.monitorAndAdjustSellOrders(offerId);
+      }
+    } catch (error) {
+      console.error("Error in monitorOrders:", error);
+    }
+  }
+
+
+  async monitorAndAdjustSellOrders(offerId) {
+    try {
+
+
+      // Retrieve existing order details
+      const offer = await execution.getOfferById(offerId);
+      if (offer == null || offer == undefined) { // Order not available in DB, delete it
+        console.log(`Offer ${offerId} not found in DB, deleting it.`);
+        //await execution.deleteOffer(offerId);
+        return;
+      }
+
+
+      const sellingAssetDetails = offer.sellingAsset; // Assuming "CODE:ISSUER"
+      const buyingAssetDetails = offer.buyingAsset; // Assuming "CODE:ISSUER"
+
+      // Split asset details into code and issuer
+      const [sellingAssetCode, sellingAssetIssuer] = sellingAssetDetails.includes(':') ? sellingAssetDetails.split(':') : ['XLM', ''];
+      const [buyingAssetCode, buyingAssetIssuer] = buyingAssetDetails.includes(':') ? buyingAssetDetails.split(':') : ['XLM', ''];
+
+
+      let minimumExitProfit = existingDetails.lastHighProfit;
+
+      const orderbook = await server.orderbook(
+        new StellarSdk.Asset(buyingAssetCode, buyingAssetIssuer),
+        new StellarSdk.Asset(sellingAssetCode, sellingAssetIssuer)
+      ).call();
+
+      const assetBalance = await execution.getAssetBalance({ code: sellingAssetCode, issuer: sellingAssetIssuer });
+      if (!assetBalance) {
+        console.error("Failed to retrieve asset balance.");
+        return;
+      }
+
+      // Assuming calculateSellPrice is a method that calculates the sell price based on some logic
+      const sellPrice = this.calculateSellPrice(orderbook, assetBalance, offer.buyPrice);
+      const assetPrice = parseFloat(orderbook.bids[0].price);
+      const sellAmount = (0.5 * assetBalance).toFixed(6);
+
+      const currentProfit = (assetPrice - offer.buyPrice) / offer.buyPrice;
+
+      // Update sell order - Assuming this method exists and is correctly implemented
+      const sellResult = await execution.placeSellOrder({
+        assetToSell: { code: sellingAssetCode, issuer: sellingAssetIssuer },
+        amount: sellAmount,
+        price: sellPrice
+      });
+
+      tradeHelper.updateOrder("sell", sellResult, sellingAssetCode, "XLM", sellPrice, assetBalance, 0);
+
+
+      console.log(`Sell order placed at ${sellPrice}. Profit: ${currentProfit * 100}%`, sellResult);
+
+      // Assuming updateMinimumExitProfit correctly updates and returns the new minimum exit profit
+      minimumExitProfit = await this.updateMinimumExitProfit(currentProfit, offerId);
+
+      return minimumExitProfit;
+    } catch (error) {
+      console.log("MONITOR ERROR", error);
+    }
+  }
+
+  updateMinimumExitProfit = async (currentProfit, orderId) => {
+    // Retrieve the current details of the order to get the last high profit.
+    const existingDetails = await tradeHelper.retrieveOrderDetails(orderId);
+
+    // Check if currentProfit is greater than the last stored high profit and update if so.
+    if (currentProfit > existingDetails.lastHighProfit) {
+      await tradeHelper.updateLastHighProfit(orderId, currentProfit);
+      return currentProfit; // New minimum exit profit is the current profit.
     }
 
-    if (!topBuyPrice || !topBuyAmount) {
-      return 0.1;
-    }
+    return existingDetails.lastHighProfit; // No update needed, return the stored value.
+  };
 
-    // Find the highest ask price where the amount is more than 30% of the total asks
-    let askPrice = 0;
+
+  async calculateSellPrice(orderbook, amount = null, price = null) {
+    let accumulatedAmount = 0;
+    // If price is not provided, use the first ask price as a fallback or a default value if no asks are present.
+    let topBuyPrice = price || (orderbook.asks.length > 0 ? parseFloat(orderbook.asks[0].price) : 0.1);
+    let targetAmount = amount || (orderbook.asks.reduce((acc, ask) => acc + parseFloat(ask.amount), 0) * 0.3); // 30% of total asks volume if amount not provided
+
     for (let i = 0; i < orderbook.asks.length; i++) {
       const ask = orderbook.asks[i];
-      if (parseFloat(ask.amount) >= topBuyAmount) {
-        askPrice = parseFloat(ask.price);
+      accumulatedAmount += parseFloat(ask.amount);
+
+      console.log("accumulatedAmount", accumulatedAmount);
+
+      if (accumulatedAmount >= targetAmount) {
+        topBuyPrice = parseFloat(ask.price); // Update topBuyPrice based on the current ask
         break;
       }
     }
 
-    // If the ask price is 0, use the second lowest ask price
-    if (askPrice === 0 && orderbook.asks.length >= 2) {
-      askPrice = parseFloat(orderbook.asks[1].price);
-    }
+    // Calculate the option2Price based on the highest ask price encountered or fallback to default if none are suitable
+    let askPrice = orderbook.asks.length > 0 ? parseFloat(orderbook.asks[0].price) * 1.03 : topBuyPrice; // A little above the first ask price or topBuyPrice
 
-    const option2Price = askPrice * 1.03;
-    console.log("option1Price", topBuyPrice, "option2Price", option2Price)
-    const sellPrice = Math.min(topBuyPrice, option2Price);
+    // Use the minimum of topBuyPrice and askPrice as the sell price, adjusted slightly downwards to make it competitive
+    const sellPrice = Math.min(topBuyPrice, askPrice) - 0.0000002;
 
-    return (sellPrice - 0.0000002)
+    return sellPrice;
   }
 
 

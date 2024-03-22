@@ -239,7 +239,7 @@ function (_BaseModel) {
               _context8.prev = 0;
 
               if (!(action === 'remove')) {
-                _context8.next = 6;
+                _context8.next = 8;
                 break;
               }
 
@@ -250,28 +250,28 @@ function (_BaseModel) {
               rs = _context8.sent;
               return _context8.abrupt("return", true);
 
-            case 6:
+            case 8:
               inData = {
                 asset_code: asset,
                 asset_issue: issuer
               };
-              _context8.next = 9;
+              _context8.next = 11;
               return regeneratorRuntime.awrap(this.inserData("trading_assets", inData));
 
-            case 9:
+            case 11:
               return _context8.abrupt("return", true);
 
-            case 12:
-              _context8.prev = 12;
+            case 14:
+              _context8.prev = 14;
               _context8.t0 = _context8["catch"](0);
               return _context8.abrupt("return", false);
 
-            case 15:
+            case 17:
             case "end":
               return _context8.stop();
           }
         }
-      }, null, this, [[0, 12]]);
+      }, null, this, [[0, 14]]);
     }
   }, {
     key: "updateData",

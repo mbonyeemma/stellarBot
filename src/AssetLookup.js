@@ -12,7 +12,7 @@ export default class AssetLookup {
         }
     }
 
-    async getBestAssetsToTrade(numAssets = 5) {
+    async getBestAssetsToTrade(numAssets) {
         try {
             console.log("getBestAssetsToTrade", numAssets);
             let assets = await this.fetchAllAssets();
