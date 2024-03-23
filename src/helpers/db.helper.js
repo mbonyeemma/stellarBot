@@ -43,7 +43,7 @@ class DbHelper {
         connection.query(query, (error, results) => {
           connection.release();
           if (error) return reject(error);
-          const result = results.length > 0 ? JSON.parse(JSON.stringify(results[0])) : [];
+          const result = results.length > 0 ? JSON.parse(JSON.stringify(results)) : [];
           resolve(result);
         });
       });

@@ -50,12 +50,17 @@ export default class CronService {
 
 
 
+
+
+
+
+
         console.log("Updating assets")
         await this.updateBestAssets();
 
 
 
-      }, 10000);  // 30000 milliseconds = 30 seconds
+      }, 60000);  // 30000 milliseconds = 30 seconds
 
     } catch (error) {
       console.error("REDIS ERROR", error);
@@ -64,16 +69,7 @@ export default class CronService {
 
 
 
-  buyAssets = async () => {
-    const bestAssetsJSON = await redisClient.get(redis.bestAssetsKey);
-    if (bestAssetsJSON) {
-      const bestAssets = JSON.parse(bestAssetsJSON);
-      for (const element of bestAssets) {
-        const assetObj = new StellarSdk.Asset(element.code, element.issuer);
-        await this.trader.init(assetObj);
-      }
-    }
-  }
+
 
 
 
@@ -87,18 +83,24 @@ export default class CronService {
     }
   }
 
-  offersWorker = async () => {
-
-    await this.trader.monitorOrders();
-
-
-
-  }
 
   updateBestAssets = async () => {
     try {
+
+      const assetInfo = await tradeHelper.getManualRecommendations();
+      for (let i=0; i<assetInfo.length;i++) {
+        console.log(assetInfo[i].asset_code, assetInfo[i].asset_issuer)
+
+        const assetObj = new StellarSdk.Asset(assetInfo[i].asset_code, assetInfo[i].asset_issuer);
+        await this.trader.BuyAssets(assetObj);
+        await tradeHelper.updateManual(assetInfo[i].asset_code);
+      }
+
+
       const balances = await this.execution.getBalances();
       if (balances.length > 5) {
+        await this.removeAssets(balances);
+        this.trader.initialAssetSell();
         console.log(`IN SELLING MODE`)
         return;
       }
@@ -109,11 +111,7 @@ export default class CronService {
         const assetObj = new StellarSdk.Asset(element.code, element.issuer);
         const asset = await tradeHelper.getSavedAsset(element.code);
         if (asset.length == 0) {
-          tradeHelper.insertAsset(element.code, element.issuer)
-          await this.trader.init(assetObj);
-        } else {
-          this.trader.initialAssetSell();
-          console.log(`Asset is already saved, moving on`)
+          await this.trader.BuyAssets(assetObj);
         }
       }
     } catch (error) {
@@ -121,28 +119,38 @@ export default class CronService {
     }
   }
 
-  removeAssets = async () => {
-    const balances = await this.execution.getBalances();
-    for (const balance of balances) {
-      if (balance.asset_type !== 'native') {
-        const asset = balance.asset_code;
-        const issuer = balance.asset_issuer;
-        const assetBalance = parseFloat(balance.balance);
-
-        console.log("asset", asset, issuer, assetBalance)
-        const assetData = await tradeHelper.GetAsset(asset, issuer);
-
-        if ((assetData && assetData.status === 'remove') || assetBalance < 5) {
-          const sellAsset = this.execution.createAsset(asset, issuer);
-          await this.trader.removeAsset(sellAsset);
-
-        } else {
-          tradeHelper.saveBalances(asset, issuer, "");
+  removeAssets = async (balances) => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Set time to midnight
+  
+      for (const balance of balances) {
+        if (balance.asset_type !== 'native') {
+          const asset = balance.asset_code;
+          const issuer = balance.asset_issuer;
+          const assetBalance = parseFloat(balance.balance);
+  
+          console.log("asset", asset, issuer, assetBalance)
+          const assetData = await tradeHelper.GetAsset(asset, issuer);
+          if(assetData.length>0){
+          const addedOn = new Date(assetData[0]['added_at']);
+          addedOn.setHours(0, 0, 0, 0); // Set time to midnight
+          
+          // Check if addedOn is not today
+          if ((assetData && assetData[0].status === 'remove' || addedOn < today) ) {
+            const sellAsset = this.execution.createAsset(asset, issuer);
+            await this.trader.removeAsset(sellAsset);
+          }
+        }
         }
       }
+      return true;
+    } catch (error) {
+      console.log("removeAssetsError", error);
+      return false;
     }
-
-    return true;
   }
   
+  
+
 }

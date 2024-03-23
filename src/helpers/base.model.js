@@ -90,7 +90,6 @@ class BaseModel  {
 
   async callQuery(query, connType = 'normal') {
     const result = await dbs.pdo(query, connType);
-    console.log("chatResult", result);
     this.resetSelectSettings();
     return result;
   }

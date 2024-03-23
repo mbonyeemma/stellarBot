@@ -16,13 +16,15 @@ class TradeHelper extends BaseModel {
             selling_amount: amount,
             lastHightProfit: lastHighProfit,
             status: status
-                };
+        };
         try {
             const tableName = orderType === 'buy' ? 'buy_offers' : 'sell_offers';
             await this.inserData(tableName, orderDetails);
+
         } catch (err) {
             console.error(`Error adding order ID ${orderId}: ${err.message}`);
         }
+        return true;
     }
 
     async removeOrderId(orderId) {
@@ -31,6 +33,7 @@ class TradeHelper extends BaseModel {
         } catch (err) {
             console.error(`Error removing order ID ${orderId}: ${err.message}`);
         }
+        return true;
     }
 
     async updateOrderStatus(orderId, status) {
@@ -40,6 +43,7 @@ class TradeHelper extends BaseModel {
         } catch (err) {
             console.error(`Error updating order status for order ID ${orderId}: ${err.message}`);
         }
+        return true;
     }
 
     async updateLastHighProfit(orderId, lastHighProfit) {
@@ -48,6 +52,8 @@ class TradeHelper extends BaseModel {
         } catch (err) {
             console.error(`Error updating last high profit for order ID ${orderId}: ${err.message}`);
         }
+        return true;
+
     }
 
     async getActiveOrders(orderType) {
@@ -90,7 +96,15 @@ class TradeHelper extends BaseModel {
 
     async getSavedAsset(asset) {
         return await this.callQuery(`select * from trading_assets where asset_code='${asset}' `)
+    }
 
+    async updateManual($asset) {
+        return await this.callQuery(`DELETE FROM recommended_assets where asset_code = '${asset}'`);
+
+    }
+
+    async getManualRecommendations() {
+        return await this.callQuery(`select * from recommended_assets `)
     }
 
 
@@ -103,7 +117,10 @@ class TradeHelper extends BaseModel {
             return false;
         }
     }
+    async getBuyOffers() {
+        return await this.callQuery(`select * from buy_offers `)
 
+    }
     async GetOffer(offerId) {
         try {
             const pairRes = await this.callQuery(`CALL GetOffer('${offerId}');`);

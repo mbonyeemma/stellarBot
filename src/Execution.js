@@ -133,6 +133,7 @@ export default class Execution {
 
   async getBalances() {
     const publicKey = StellarSdk.Keypair.fromSecret(config.secretKey).publicKey();
+    console.log("Balances for ", publicKey)
     const account = await server.loadAccount(publicKey);
     return account.balances
   }

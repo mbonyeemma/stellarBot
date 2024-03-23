@@ -10,7 +10,7 @@ var server = new StellarSdk.Server("https://horizon.stellar.org");
 const execution = new Execution();
 export default class Trader {
 
-  async init(assetToBuy) {
+  async BuyAssets(assetToBuy) {
     console.log("started the init function with asset,", assetToBuy)
     const publicKey = config.publicKey;
     const secretKey = config.secretKey;
@@ -45,6 +45,8 @@ export default class Trader {
     console.log('Buy order result:', result);
 
     if (result !== false) {
+      tradeHelper.insertAsset(assetToBuy.code, assetToBuy.issuer)
+
       const isDeleted = await execution.deleteAllSellOffersForAsset(assetToBuy)
       if (isDeleted) {
         // tradeHelper.addOrderId(result)
@@ -102,13 +104,17 @@ export default class Trader {
       // return true;
       const issuerAddress = process.env.wIssuer
       const nsAsset = process.env.wAsset
+      console.log("asset removal",assetToSell)
 
 
       if (assetToSell.code != nsAsset && assetToSell.issuer != issuerAddress) {
+        console.log("RM 1 ")
         const isDeleted = await execution.deleteAllSellOffersForAsset(assetToSell)
         const assetBalance = await execution.getAssetBalance(assetToSell);
         const sellPrice = "0.0000001"
         let sellResult = false;
+        console.log("RM 2 ",assetBalance)
+
         if (assetBalance > 1) {
           sellResult = await execution.StrictSendTransaction(assetToSell, assetBalance);
           console.log(`Strictr send placed at ${sellPrice}.`, sellResult);
@@ -129,6 +135,8 @@ export default class Trader {
         if (assetNewBalance == 0) {
           await this.addTrustLine(assetToSell, "0");
           console.log('Asset Removed', assetToSell);
+          
+
         }
       }
 
@@ -170,9 +178,13 @@ export default class Trader {
     return true;
   }
 
+
   async initialAssetSell() {
     try {
-      const balances = await execution.getBalances(this.publicKey);
+      const publicKey = config.publicKey;
+      console.log("Initiating balance check for account", publicKey)
+      const balances = await execution.getBalances(publicKey);
+     // console.log('Balances for account', balances)
       for (const balance of balances) {
         if (balance.asset_type !== 'native' && parseFloat(balance.balance) > 0) {
           const assetDetails = balance.asset_type === 'credit_alphanum4' || balance.asset_type === 'credit_alphanum12' ?
@@ -180,49 +192,11 @@ export default class Trader {
           await this.sellAssetForProfit(assetDetails);
         }
       }
-    } catch (error) {
-      console.error("Error selling assets:", error);
-    }
-  }
 
-
-  async sellAssetForProfit(sellingAssetDetails) {
-    try {
-
-      console.log("SELL===>", sellingAssetDetails)
-      const [sellingAssetCode, sellingAssetIssuer] = sellingAssetDetails.split(':');
-      const asset = new StellarSdk.Asset(sellingAssetCode, sellingAssetIssuer === 'XLM' ? undefined : sellingAssetIssuer);
-
-      const publicKey = config.publicKey;
-      const openOrders = await execution.getOpenOrders(publicKey);
-      const relevantOrder = openOrders.find(order => order.sellingAsset === sellingAssetDetails);
-
-      if (!relevantOrder) {
-        // If no relevant selling order, consider creating a new sell order based on market conditions
-        const orderbook = await server.orderbook(asset, new StellarSdk.Asset('XLM')).call();
-        const assetBalance = await execution.getAssetBalance(asset);
-        const sellPrice = await this.calculateSellPrice(orderbook, assetBalance);
-
-        if (assetBalance > 0) {
-
-          await tradeHelper.saveOrderDetails("buy", "0x00000", "XLM", sellingAssetCode, sellPrice, assetBalance, sellPrice, 'completed');
-          const sellResult = await execution.placeSellOrder(asset, assetBalance, sellPrice);
-          console.log(`Sell order placed for ${sellingAssetDetails} at ${sellPrice}:`, sellResult);
-          await tradeHelper.saveOrderDetails("sell", sellResult, sellingAssetCode, "XLM", sellPrice, assetBalance, 0);
-        }
-      } else {
-        console.log(`Existing order found for ${sellingAssetDetails}, monitoring...`);
-        // Here you might monitor the order or adjust it based on new market conditions
-      }
-    } catch (error) {
-      console.error("Error in sellAssetForProfit:", error);
-    }
-  }
-
-
-  async TrackBuyOffers() {
-    try {
+      
+      /*
       const openOrders = await tradeHelper.getBuyOffers();
+      console.log("tracking buy orders", openOrders)
       for (const order of openOrders) {
         const offerId = order.offerId
         const offer = await execution.getOfferById(offerId);
@@ -233,10 +207,61 @@ export default class Trader {
         }
         await this.monitorAndAdjustSellOrders(offerId);
       }
+      */
+
+      
+
     } catch (error) {
       console.error("Error in monitorOrders:", error);
     }
   }
+
+
+
+  async sellAssetForProfit(sellingAssetDetails) {
+    try {
+
+      console.log("SELL===>", sellingAssetDetails)
+      const [sellingAssetCode, sellingAssetIssuer] = sellingAssetDetails.split(':');
+      const asset = new StellarSdk.Asset(sellingAssetCode, sellingAssetIssuer === 'XLM' ? undefined : sellingAssetIssuer);
+
+      const publicKey = config.publicKey;
+      console.log(`Fetching open orders for key ${publicKey}`)
+      const openOrders = await execution.getOpenOrders(publicKey);
+      console.log(`Open orders List`,openOrders)
+      const relevantOrder = openOrders.find(order => order.sellingAsset === sellingAssetDetails);
+
+      if (!relevantOrder) {
+        // If no relevant selling order, consider creating a new sell order based on market conditions
+        const orderbook = await server.orderbook(asset, new StellarSdk.Asset('XLM')).call();
+        const assetBalance = await execution.getAssetBalance(asset);
+        const sellPrice = await this.calculateSellPrice(orderbook, assetBalance);
+        console.log("sellPrice",sellPrice)
+        console.log("assetBalance",assetBalance)
+
+        if (assetBalance > 1) {
+          console.log("Place order Level 1",sellingAssetCode)
+
+        //  await tradeHelper.saveOrderDetails("buy", "0x00000", "XLM", sellingAssetCode, sellPrice, assetBalance, sellPrice, 'completed');
+         console.log(`Place sell order 1`,{asset, assetBalance, sellPrice})
+          const sellResult = await execution.placeSellOrder(asset, assetBalance, sellPrice);
+          console.log(`Place sell order response`,sellResult);
+          if(sellResult !==false){
+            await tradeHelper.saveOrderDetails("sell", sellResult, sellingAssetCode, "XLM", sellPrice, assetBalance, 0);
+          }
+        }
+      } else {
+        console.log(`Existing order found for ${sellingAssetDetails}, monitoring...`);
+        // Here you might monitor the order or adjust it based on new market conditions
+      }
+    } catch (error) {
+      console.error("Error in sellAssetForProfit:", error);
+      return false
+    }
+    return true;
+  }
+
+
 
 
   async monitorAndAdjustSellOrders(offerId) {
