@@ -8,36 +8,36 @@ const sourceKeys = StellarSdk.Keypair.fromSecret(config.secretKey);
 
 export default class Execution {
   async placeBuyOrder(assetToBuy, amount, price, offerId = 0) {
-    return this.manageBuyOffer(assetToBuy, amount, price, offerId);
+    return await this.manageBuyOffer(assetToBuy, amount, price, offerId);
   }
 
   async updateBuyOrder(assetToBuy, amount, price, offerId) {
-    return this.manageBuyOffer(assetToBuy, amount, price, offerId);
+    return await this.manageBuyOffer(assetToBuy, amount, price, offerId);
   }
 
   async deleteBuyOrder(offerId) {
-    return this.manageBuyOffer(null, 0, 1, offerId);
+    return await this.manageBuyOffer(null, 0, 1, offerId);
   }
 
   async deleteOffer(offerId) {
     try {
       const keypair = StellarSdk.Keypair.fromSecret(config.secretKey);
       const account = await server.loadAccount(keypair.publicKey());
-  
+
       const [
         {
           max_fee: { mode: fee },
         },
       ] = await Promise.all([server.feeStats()]);
-  
+
       const transactionBuilder = new StellarSdk.TransactionBuilder(account, {
         fee,
         networkPassphrase: StellarSdk.Networks.PUBLIC,
       });
-  
+
       // Placeholder assets; specifics don't matter for deletion
       const dummyAsset = StellarSdk.Asset.native();
-  
+
       const offerObject = {
         selling: dummyAsset,
         buying: dummyAsset,
@@ -45,23 +45,43 @@ export default class Execution {
         price: "1", // Arbitrary since it's a deletion
         offerId: offerId,
       };
-  
+
       const manageSellOfferOp = StellarSdk.Operation.manageSellOffer(offerObject);
       transactionBuilder.addOperation(manageSellOfferOp);
-  
+
       const transaction = transactionBuilder.setTimeout(100).build();
       transaction.sign(keypair);
-  
+
       const transactionResult = await server.submitTransaction(transaction);
       console.log(transactionResult);
-  
+
       return true;
     } catch (error) {
       console.error("Error deleting the offer:", error);
       return false;
     }
   }
-  
+
+  async hasSellOffers(asset) {
+       const keypair = StellarSdk.Keypair.fromSecret(config.secretKey);
+      const publicKey = keypair.publicKey();
+      const account = await server.loadAccount(publicKey);
+      const offers = await server.offers().forAccount(publicKey).call();
+
+      const sellOffersToDelete = offers.records.filter(
+        (offer) =>
+          offer.selling.asset_code === asset.code &&
+          offer.selling.asset_issuer === asset.issuer
+      );
+
+      if (sellOffersToDelete.length > 0) {
+        console.log("No sell offers found for the asset.");
+        return true;
+      }
+      return false;
+ 
+  }
+
 
 
   async deleteAllSellOffersForAsset(asset) {
@@ -177,10 +197,9 @@ export default class Execution {
     }
   }
 
-
   async manageBuyOffer(assetToBuy, amount, price, offerId) {
     try {
-      const senderKeypair = StellarSdk.Keypair.fromSecret(config.secretKey)
+      const senderKeypair = StellarSdk.Keypair.fromSecret(config.secretKey);
 
       let buyingAsset;
       if (assetToBuy) {
@@ -193,8 +212,8 @@ export default class Execution {
         buyAmount: amount.toString(),
         price: price.toString(),
         offerId: offerId.toString(),
-      }
-      console.log(data)
+      };
+      console.log("Manage buy offer data:", data);
 
       const [
         {
@@ -208,7 +227,7 @@ export default class Execution {
 
       const manageBuyOfferOp = StellarSdk.Operation.manageBuyOffer(data);
 
-      var transaction = new StellarSdk.TransactionBuilder(sender, {
+      const transaction = new StellarSdk.TransactionBuilder(sender, {
         fee,
         networkPassphrase: StellarSdk.Networks.PUBLIC,
       })
@@ -217,43 +236,52 @@ export default class Execution {
         .build();
 
       transaction.sign(senderKeypair);
-      try {
-        const transactionResult = await server.submitTransaction(transaction);
-        return transactionResult.hash
-      } catch (e) {
-        console.error("Oh no! Something went wrong.");
-        console.error(e);
-        return false;
-      }
 
+      const transactionResult = await server.submitTransaction(transaction);
+      console.log("Transaction result:", transactionResult);
 
+      // Extract offerId from the transactionResult
+      const operations = transactionResult.result_xdr
+        ? StellarSdk.xdr.TransactionResult.fromXDR(Buffer.from(transactionResult.result_xdr, "base64")).result().results()
+        : null;
 
+      const manageBuyOfferResult = operations.find(
+        (op) => op.tr().manageBuyOfferResult() !== undefined
+      ).tr().manageBuyOfferResult();
+
+      const newOfferId = manageBuyOfferResult.offer().offer().offerId().toString();
+
+      console.log("New offer ID:", newOfferId);
+
+      return newOfferId;
     } catch (error) {
       console.error('Error managing buy offer:', error);
       return false;
     }
   }
+
+
   async updateOffer(offerId, sellingAsset, buyingAsset, amount, price) {
     try {
       const keypair = StellarSdk.Keypair.fromSecret(config.secretKey);
       const account = await server.loadAccount(keypair.publicKey());
-  
+
       // Fetch current fee from the network
       const [
         {
           max_fee: { mode: fee },
         },
       ] = await Promise.all([server.feeStats()]);
-  
+
       const transactionBuilder = new StellarSdk.TransactionBuilder(account, {
         fee,
         networkPassphrase: StellarSdk.Networks.PUBLIC,
       });
-  
+
       // Define the assets being sold and bought
       const selling = new StellarSdk.Asset(sellingAsset.code, sellingAsset.issuer);
       const buying = new StellarSdk.Asset(buyingAsset.code, buyingAsset.issuer);
-  
+
       // Create the manage sell offer operation with the updated details
       const manageSellOfferOp = StellarSdk.Operation.manageSellOffer({
         selling: selling,
@@ -262,27 +290,27 @@ export default class Execution {
         price: price.toString(),
         offerId: offerId.toString(),
       });
-  
+
       transactionBuilder.addOperation(manageSellOfferOp);
-  
+
       // Build and sign the transaction
       const transaction = transactionBuilder.setTimeout(100).build();
       transaction.sign(keypair);
-  
+
       // Submit the transaction to the Stellar network
       const transactionResult = await server.submitTransaction(transaction);
       console.log(`Successfully updated offer with ID: ${offerId}`, transactionResult);
-  
+
       return true;
     } catch (error) {
       console.error(`Error updating offer with ID: ${offerId}:`, error);
       return false;
     }
   }
-  
+
 
   async placeSellOrder(assetToSell, amount, price, offerId = 0) {
-    console.log("placeSellOrder", assetToSell, amount, price, offerId)
+    console.log("placeSellOrder", assetToSell, amount, price, offerId);
     try {
       const senderKeypair = StellarSdk.Keypair.fromSecret(config.secretKey);
       const sellingAsset = new StellarSdk.Asset(assetToSell.code, assetToSell.issuer);
@@ -292,7 +320,7 @@ export default class Execution {
         buying: this.createAsset(config.quoteAsset), // Your quote asset (e.g., USD)
         amount: amount.toString(),
         price: price.toString(),
-        offerId: offerId.toString() // Set to 0 to create a new offer
+        offerId: offerId.toString(), // Set to 0 to create a new offer
       };
       console.log("sellArray", data);
 
@@ -307,7 +335,7 @@ export default class Execution {
       ]);
 
       const manageSellOfferOp = StellarSdk.Operation.manageSellOffer(data);
-      var transaction = new StellarSdk.TransactionBuilder(sender, {
+      const transaction = new StellarSdk.TransactionBuilder(sender, {
         fee,
         networkPassphrase: StellarSdk.Networks.PUBLIC,
       })
@@ -316,19 +344,57 @@ export default class Execution {
         .build();
 
       transaction.sign(senderKeypair);
-      try {
-        const transactionResult = await server.submitTransaction(transaction);
-        return transactionResult.hash
-      } catch (e) {
-        console.error("Oh no! Something went wrong.");
-        console.error("Operations:", e.response.data.extras.result_codes.operations);
-        return false;
-      }
+
+      const transactionResult = await server.submitTransaction(transaction);
+      console.log("Transaction result:", transactionResult);
+
+      // Extract offerId from the transactionResult
+      const operations = transactionResult.result_xdr
+        ? StellarSdk.xdr.TransactionResult.fromXDR(Buffer.from(transactionResult.result_xdr, "base64")).result().results()
+        : null;
+
+      const manageSellOfferResult = operations.find(
+        (op) => op.tr().manageSellOfferResult() !== undefined
+      ).tr().manageSellOfferResult();
+
+      const newOfferId = manageSellOfferResult.offer().offer().offerId().toString();
+
+      console.log("New offer ID:", newOfferId);
+
+      return newOfferId;
     } catch (error) {
       console.error("Error managing sell offer:", error);
       return false;
     }
   }
+
+
+  async calculateSellAmount(assetToSell, sellAmount) {
+    try {
+      console.log("calculateSellAmountBody", assetToSell, sellAmount);
+  
+      const sourceAsset = new StellarSdk.Asset(assetToSell.code, assetToSell.issuer);
+      const destinationAsset = StellarSdk.Asset.native(); // Selling for XLM
+  
+      // Leverage strictSendPaths for pathfinding with enhanced validation
+      const pathPayment = await server.strictSendPaths(sourceAsset, sellAmount, [destinationAsset]).call();
+      console.log("pathPayment", pathPayment);
+  
+      // Handle the case where no paths are found
+      if (pathPayment.records.length === 0) {
+        throw new Error('No path found to sell the specified amount of asset.');
+      }
+  
+      // Extract the destination amount from the first path
+      const destinationAmount = parseFloat(pathPayment.records[0].destination_amount);
+  
+      return destinationAmount;
+    } catch (error) {
+      console.error('Error calculating sell amount:', error);
+      return null;
+    }
+  }
+  
   async StrictSendTransaction(assetToSell, amount) {
     console.log("StrictSend", assetToSell, amount)
     try {
@@ -431,7 +497,7 @@ export default class Execution {
         console.log(`Offer with ID ${offerId} not found.`);
         return null;
       }
-  
+
       // Parsing and returning a simplified version of the offer details.
       const offerDetails = {
         offerId: offerResponse.id,
@@ -441,7 +507,7 @@ export default class Execution {
         amount: offerResponse.amount,
         price: offerResponse.price,
       };
-  
+
       return offerDetails;
     } catch (error) {
       console.error(`Error fetching offer with ID ${offerId}:`, error);
@@ -449,7 +515,7 @@ export default class Execution {
     }
   }
 
-  
+
   async getOpenOrders(accountId) {
     try {
       const offersResponse = await server.offers().forAccount(accountId).call();

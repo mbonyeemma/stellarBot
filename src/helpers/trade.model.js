@@ -7,6 +7,7 @@ class TradeHelper extends BaseModel {
     }
 
     async saveOrderDetails(orderType, orderId, sellingAsset, buyingAsset, price, amount, lastHighProfit, status = 'pending') {
+      const buying_amount = amount/price
         const orderDetails = {
             offer_id: orderId,
             order_type: orderType,
@@ -14,15 +15,16 @@ class TradeHelper extends BaseModel {
             buying_asset: buyingAsset,
             ex_rate: price,
             selling_amount: amount,
+            buying_amount: buying_amount,
             lastHightProfit: lastHighProfit,
             status: status
         };
         try {
             const tableName = orderType === 'buy' ? 'buy_offers' : 'sell_offers';
             await this.inserData(tableName, orderDetails);
-
         } catch (err) {
-            console.error(`Error adding order ID ${orderId}: ${err.message}`);
+            await this.updateData(tableName, orderDetails, `selling_asset='${sellingAsset}' AND buying_asset='${buyingAsset}'`);
+           // console.error(`Error adding order ID ${orderId}: ${err.message}`);
         }
         return true;
     }
@@ -36,10 +38,20 @@ class TradeHelper extends BaseModel {
         return true;
     }
 
-    async updateOrderStatus(orderId, status) {
-        const orderDetails = { status: status };
+    async updateOrderStatus(orderId, status,profit=0) {
+        const orderDetails = { status: status,updateOrder:profit };
         try {
-            await this.updateRecords('orders', orderDetails, `offer_id='${orderId}'`);
+            await this.updateRecords('sell_offers', orderDetails, `offer_id='${orderId}'`);
+        } catch (err) {
+            console.error(`Error updating order status for order ID ${orderId}: ${err.message}`);
+        }
+        return true;
+    }
+
+    async updateOrderPrice(orderId, price) {
+        const orderDetails = {price_track:price };
+        try {
+            await this.updateRecords('buy_offers', orderDetails, `offer_id='${orderId}'`);
         } catch (err) {
             console.error(`Error updating order status for order ID ${orderId}: ${err.message}`);
         }
@@ -58,17 +70,28 @@ class TradeHelper extends BaseModel {
 
     async getActiveOrders(orderType) {
         try {
+
             const tableName = orderType === 'buy' ? 'buy_offers' : 'sell_offers';
-            return await this.selectRecords(tableName, "status='active'");
+            return await this.callQuery(`select * from ${tableName} where status='active' `)
+
         } catch (err) {
             console.error(`Error retrieving active ${orderType} orders: ${err.message}`);
             return [];
         }
     }
 
-    async retrieveOrderDetails(orderId) {
+    async retrieveSellOrderDetails(orderId) {
         try {
-            const orderDetails = await this.selectRecords('orders', `offer_id='${orderId}'`);
+             const orderDetails =  await this.callQuery(`select * from buy_offers where offer_id='${orderId}'`)
+            return orderDetails.length > 0 ? orderDetails[0] : null;
+        } catch (err) {
+            console.error(`Error retrieving order details for order ID ${orderId}: ${err.message}`);
+            return null;
+        }
+    }
+    async retrieveOrderDetails(asset) {
+        try {
+             const orderDetails =  await this.callQuery(`select * from buy_offers where buying_asset='${asset}' and status='pending' `)
             return orderDetails.length > 0 ? orderDetails[0] : null;
         } catch (err) {
             console.error(`Error retrieving order details for order ID ${orderId}: ${err.message}`);
