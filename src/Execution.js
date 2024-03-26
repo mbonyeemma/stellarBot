@@ -283,6 +283,13 @@ export default class Execution {
       const selling = new StellarSdk.Asset(sellingAsset.code, sellingAsset.issuer);
       const buying = new StellarSdk.Asset(buyingAsset.code, buyingAsset.issuer);
 
+      console.log(`Offer Update`,{
+        selling: selling,
+        buying: buying,
+        amount: amount.toString(),
+        price: price.toString(),
+        offerId: offerId.toString(),
+      })
       // Create the manage sell offer operation with the updated details
       const manageSellOfferOp = StellarSdk.Operation.manageSellOffer({
         selling: selling,

@@ -6,8 +6,8 @@ class TradeHelper extends BaseModel {
         super(); // Calls the constructor of the base class (BaseModel)
     }
 
-    async saveOrderDetails(orderType, orderId, sellingAsset, buyingAsset, price, amount, lastHighProfit, status = 'pending') {
-      const buying_amount = amount/price
+    async saveOrderDetails(orderType, orderId, sellingAsset, buyingAsset, price, amount, buying_amount, status = 'pending') {
+
         const orderDetails = {
             offer_id: orderId,
             order_type: orderType,
@@ -15,16 +15,18 @@ class TradeHelper extends BaseModel {
             buying_asset: buyingAsset,
             ex_rate: price,
             selling_amount: amount,
-            buying_amount: buying_amount,
-            lastHightProfit: lastHighProfit,
+            buying_amount,
+            highest_price: price,
             status: status
         };
         try {
             const tableName = orderType === 'buy' ? 'buy_offers' : 'sell_offers';
-            await this.inserData(tableName, orderDetails);
+            const rsp = await this.inserData(tableName, orderDetails);
+            if (rsp == false) {
+                await this.updateData(tableName, orderDetails, `selling_asset='${sellingAsset}' AND buying_asset='${buyingAsset}'`);
+            }
         } catch (err) {
-            await this.updateData(tableName, orderDetails, `selling_asset='${sellingAsset}' AND buying_asset='${buyingAsset}'`);
-           // console.error(`Error adding order ID ${orderId}: ${err.message}`);
+            // console.error(`Error adding order ID ${orderId}: ${err.message}`);
         }
         return true;
     }
@@ -38,10 +40,10 @@ class TradeHelper extends BaseModel {
         return true;
     }
 
-    async updateOrderStatus(orderId, status,profit=0) {
-        const orderDetails = { status: status,updateOrder:profit };
+    async updateOrderStatus(orderId, status, profit = 0) {
+        const orderDetails = { status: status, updateOrder: profit };
         try {
-            await this.updateRecords('sell_offers', orderDetails, `offer_id='${orderId}'`);
+            await this.updateData('sell_offers', orderDetails, `offer_id='${orderId}'`);
         } catch (err) {
             console.error(`Error updating order status for order ID ${orderId}: ${err.message}`);
         }
@@ -49,9 +51,10 @@ class TradeHelper extends BaseModel {
     }
 
     async updateOrderPrice(orderId, price) {
-        const orderDetails = {price_track:price };
+        console.log("price", price)
         try {
-            await this.updateRecords('buy_offers', orderDetails, `offer_id='${orderId}'`);
+            const orderDetails = { "highest_price": price }
+            await this.updateData('buy_offers', orderDetails, `buying_asset='${orderId}'`);
         } catch (err) {
             console.error(`Error updating order status for order ID ${orderId}: ${err.message}`);
         }
@@ -60,7 +63,7 @@ class TradeHelper extends BaseModel {
 
     async updateLastHighProfit(orderId, lastHighProfit) {
         try {
-            await this.updateRecords('orders', { last_high_profit: lastHighProfit }, `offer_id='${orderId}'`);
+            await this.updateData('orders', { last_high_profit: lastHighProfit }, `offer_id='${orderId}'`);
         } catch (err) {
             console.error(`Error updating last high profit for order ID ${orderId}: ${err.message}`);
         }
@@ -82,7 +85,7 @@ class TradeHelper extends BaseModel {
 
     async retrieveSellOrderDetails(orderId) {
         try {
-             const orderDetails =  await this.callQuery(`select * from buy_offers where offer_id='${orderId}'`)
+            const orderDetails = await this.callQuery(`select * from buy_offers where offer_id='${orderId}'`)
             return orderDetails.length > 0 ? orderDetails[0] : null;
         } catch (err) {
             console.error(`Error retrieving order details for order ID ${orderId}: ${err.message}`);
@@ -91,7 +94,7 @@ class TradeHelper extends BaseModel {
     }
     async retrieveOrderDetails(asset) {
         try {
-             const orderDetails =  await this.callQuery(`select * from buy_offers where buying_asset='${asset}' and status='pending' `)
+            const orderDetails = await this.callQuery(`select * from buy_offers where buying_asset='${asset}' and status='pending' `)
             return orderDetails.length > 0 ? orderDetails[0] : null;
         } catch (err) {
             console.error(`Error retrieving order details for order ID ${orderId}: ${err.message}`);
@@ -231,6 +234,10 @@ class TradeHelper extends BaseModel {
     }
 
     async updateData(table, data, updateWhere) {
+        console.log("sentDaya", table,data,updateWhere)
+        if(data ==undefined){
+            return false
+        }
         return new Promise(async (resolve) => {
             this.tableName = table;
 
@@ -238,16 +245,17 @@ class TradeHelper extends BaseModel {
 
             const keys = Object.keys(data);
             const values = Object.values(data);
-            this.insertion = "";
+            this.updation = "";
             for (let i = 0; i < keys.length; i++) {
                 const key = keys[i];
                 const value = values[i];
-                if (this.insertion === "") {
-                    this.insertion += `${key}='${value}' `;
+                if (this.updation === "") {
+                    this.updation += `${key}='${value}' `;
                 } else {
-                    this.insertion += `,${key}='${value}' `;
+                    this.updation += `,${key}='${value}' `;
                 }
             }
+            console.log("insertion", this.updation)
 
             this.updateRecords().then(
                 (res) => {

@@ -229,6 +229,8 @@ export default class Trader {
   async sellAssetForProfit(sellingAssetDetails) {
     try {
 
+      const profitMargin = 5
+
       console.log("SELL===>", sellingAssetDetails)
       const [sellingAssetCode, sellingAssetIssuer] = sellingAssetDetails.split(':');
       const asset = new StellarSdk.Asset(sellingAssetCode, sellingAssetIssuer === 'XLM' ? undefined : sellingAssetIssuer);
@@ -240,10 +242,28 @@ export default class Trader {
       const relevantOrder = openSellOrders.find(order => order.sellingAsset === sellingAssetDetails);
 
       if (!relevantOrder) {
-        // If no relevant selling order, consider creating a new sell order based on market conditions
-        const orderbook = await server.orderbook(asset, new StellarSdk.Asset('XLM')).call();
         const assetBalance = await execution.getAssetBalance(asset);
-        const sellPrice = await this.calculateSellPrice(orderbook, assetBalance);
+        const baseAsset = execution.createAsset("XLM", "")
+
+        const existingDetails = await tradeHelper.retrieveOrderDetails(sellingAssetCode);
+        const orderbook = await server.orderbook(asset, baseAsset).call();
+        const currentPrice = await this.calculateSellPrice(orderbook);
+        let highestPrice = ""
+        let selling_amount = ""
+        let buyPrice = ""
+
+        if (existingDetails != null) {
+          highestPrice = existingDetails['highest_price']
+          selling_amount = existingDetails['selling_amount']
+          buyPrice = existingDetails['ex_rate']
+        } else {
+          await tradeHelper.saveOrderDetails("buy", "offerId", "XLM", sellingAssetCode, currentPrice, assetBalance, assetBalance);
+          highestPrice = currentPrice
+          selling_amount = assetBalance
+          buyPrice = currentPrice
+        }
+        let sellPrice = currentPrice; //buyPrice + ((profitMargin / 100) * buyPrice)
+
         console.log("sellPrice", sellPrice)
         console.log("assetBalance", assetBalance)
 
@@ -280,9 +300,110 @@ export default class Trader {
   }
 
 
-
-
   async monitorAndAdjustSellOrders(offerId) {
+    const lossMargin = -5
+    const profitMargin = 5
+    const trailingStopLoss = -3
+    //const assetBalance = 1000
+    const offer = await execution.getOfferById(offerId);
+    if (offer == null || offer == undefined) { // Order not available in DB, delete it
+      console.log(`Offer ${offerId} not found on the account`);
+      return;
+    }
+
+
+
+    const sellingAssetDetails = offer.sellingAsset;
+    const buyingAssetDetails = offer.buyingAsset;
+
+    // Split asset details into code and issuer
+    const [sellingAssetCode, sellingAssetIssuer] = sellingAssetDetails.includes(':') ? sellingAssetDetails.split(':') : ['XLM', ''];
+    const [buyingAssetCode, buyingAssetIssuer] = buyingAssetDetails.includes(':') ? buyingAssetDetails.split(':') : ['XLM', ''];
+    const offerAmount = offer.amount
+    const assetToSell = execution.createAsset(sellingAssetCode, sellingAssetIssuer)
+    const baseAsset = execution.createAsset("XLM", "")
+    const assetBalance = await execution.getAssetBalance({ code: sellingAssetCode, issuer: sellingAssetIssuer });
+    const orderbook = await server.orderbook(assetToSell, baseAsset).call();
+    let newProposedPrice = await this.calculateSellPrice(orderbook, null, null, null);
+    let sellPrice = newProposedPrice;
+
+    let selling_amount = ""
+    let buyPrice = ""
+    let currentSellPrice = offer.price
+    console.log("currentOfferPrice", currentSellPrice)
+
+    const existingDetails = await tradeHelper.retrieveOrderDetails(sellingAssetCode);
+
+    if (!assetBalance) {
+      console.error("Failed to retrieve asset balance.");
+      return;
+    }
+
+
+
+    const sellingAsset = new StellarSdk.Asset(sellingAssetCode, sellingAssetIssuer)
+    const amountAfterSell = await execution.calculateSellAmount(sellingAsset, assetBalance);
+    let currentPrice = amountAfterSell / assetBalance
+    currentPrice = currentPrice.toFixed(6).toString();
+
+
+    let highestPrice = ""
+
+    if (existingDetails != null) {
+      highestPrice = existingDetails['highest_price']
+      selling_amount = existingDetails['selling_amount']
+      buyPrice = existingDetails['ex_rate']
+    } else {
+      await tradeHelper.saveOrderDetails("buy", offerId, "XLM", sellingAssetCode, currentPrice, amountAfterSell, assetBalance);
+      highestPrice = currentPrice
+      selling_amount = assetBalance
+      buyPrice = currentPrice
+    }
+
+
+
+    console.log("sellPrice", sellPrice)
+
+    const percentagePriceChange = ((newProposedPrice - currentSellPrice) / newProposedPrice) * 100
+
+    console.log("percentagePriceChange",percentagePriceChange)
+    console.log("PricesToConsider", percentagePriceChange, highestPrice, buyPrice, currentPrice)
+
+    const PNL = ((currentPrice - buyPrice) / buyPrice) * 100
+    const highPricePNL = ((currentPrice - highestPrice) / highestPrice) * 100
+    console.log("PNL", PNL, highPricePNL)
+
+    let decision = "HOLD"
+    if (currentPrice > highestPrice) {
+      const update = await tradeHelper.updateOrderPrice(sellingAssetCode, currentPrice)
+      console.log("updated", update)
+    }
+    if (PNL <= lossMargin) {
+      console.log("DECISION 1", "SELL")
+      decision = "SELL"
+    } else if (PNL > 20) {
+      console.log("DECISION 2", "Take profit and run away")
+      decision = "SELL"
+    }
+    if (highPricePNL <= trailingStopLoss) {
+      console.log("DECISION 3", "SELL and take some profit")
+      decision = "ADJUST"
+    }
+
+    if (decision == "SELL") {
+      await execution.deleteOffer(offerId);
+      await this.removeAsset(sellingAsset);
+      tradeHelper.updateOrderStatus(offerId, "closed", marginPercentage)
+    } else {
+      if (percentagePriceChange > 3 || percentagePriceChange<-3 ) {
+        const sellResult = await execution.updateOffer(offerId, assetToSell, baseAsset, assetBalance, newProposedPrice.toFixed(7));
+
+      }
+    }
+    return "DONE"
+  }
+
+  async monitorAndAdjustSellOrdersOld(offerId) {
     try {
       let selling_amount = 0
       let price_track = 0
@@ -416,11 +537,16 @@ export default class Trader {
     let accumulatedAmount = 0;
     // If price is not provided, use the first ask price as a fallback or a default value if no asks are present.
     let topBuyPrice = price || (orderbook.asks.length > 0 ? parseFloat(orderbook.asks[0].price) : 0.1);
-    let targetAmount = amount || (orderbook.asks.reduce((acc, ask) => acc + parseFloat(ask.amount), 0) * 0.3); // 30% of total asks volume if amount not provided
+    let targetAmount = 100;// amount || (orderbook.asks.reduce((acc, ask) => acc + parseFloat(ask.amount), 0) * 0.3); // 30% of total asks volume if amount not provided
+
 
     for (let i = 0; i < orderbook.asks.length; i++) {
       const ask = orderbook.asks[i];
-      accumulatedAmount += parseFloat(ask.amount);
+
+      const amt = parseFloat(ask.amount);
+      const price = parseFloat(ask.price);
+      const xlmAmount = amt * price;
+      accumulatedAmount = accumulatedAmount + xlmAmount
 
       console.log("accumulatedAmount", accumulatedAmount);
 

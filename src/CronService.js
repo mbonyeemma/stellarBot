@@ -30,40 +30,40 @@ export default class CronService {
       console.log("use with caution, the decisions of this service are non deterministic")
       console.log("now ready to rock and roll", "all set, starting service in  60 seconds")
       //const bestAssetsJSON = await redisClient.get(redis.bestAssetsKey);
-
+    
       // Run tasks every 30 seconds
       setInterval(async () => {
-      console.log("cron is running every 1 mimute")
-      const currentDate = new Date();
-      const currentMinute = currentDate.getMinutes();
-      const currentSecond = currentDate.getSeconds();
-      console.log("currentMinute", currentMinute);
+        console.log("cron is running every 1 mimute")
+        const currentDate = new Date();
+        const currentMinute = currentDate.getMinutes();
+        const currentSecond = currentDate.getSeconds();
+        console.log("currentMinute", currentMinute);
 
-      const settings = await tradeHelper.getSettings();
-      if (settings && settings.status === 'stop') {
-        console.log("Bot is stopped");
-        return;
-      }
+        const settings = await tradeHelper.getSettings();
+        if (settings && settings.status === 'stop') {
+          console.log("Bot is stopped");
+          return;
+        }
 
-      if (settings && settings.status === 'liquidate') {
-        console.log("Bot is in liquidation process");
-        await this.sellAssetOnMarket("");
-        return;
-      }
-
-
+        if (settings && settings.status === 'liquidate') {
+          console.log("Bot is in liquidation process");
+          await this.sellAssetOnMarket("");
+          return;
+        }
 
 
 
 
 
 
-      console.log("Updating assets")
-      await this.updateBestAssets();
+
+
+        console.log("Updating assets")
+        await this.updateBestAssets();
 
 
 
-      }, 120000);  // 30000 milliseconds = 30 seconds
+      }, 60000);  // 30000 milliseconds = 30 seconds
 
     } catch (error) {
       console.error("REDIS ERROR", error);
@@ -150,7 +150,7 @@ export default class CronService {
           } else {
             if (assetBalance < 1) {
               await this.trader.removeAsset(sellAsset);
-            }else{
+            } else {
               tradeHelper.saveBalances(asset, issuer)
             }
           }
