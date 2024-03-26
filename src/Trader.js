@@ -11,7 +11,7 @@ const execution = new Execution();
 export default class Trader {
 
   async BuyAssets(assetToBuy) {
-    console.log("started the init function with asset,", assetToBuy)
+    console.log("started the init function with asset,", assetToBuy.code, assetToBuy.issuer)
     const publicKey = config.publicKey;
     const secretKey = config.secretKey;
     const account = await server.loadAccount(publicKey);
@@ -23,11 +23,14 @@ export default class Trader {
       console.log("Asset Has sell offers already")
       return;
     }
+    const hasTrustLine = await this.hasTrustLine(account, assetToBuy)
 
-    const bAssetBalance = await execution.getAssetBalance(assetToBuy.code);
-    if (bAssetBalance > 10) {
-      console.log("Asset is already on the account", bAssetBalance)
-      return true;
+    if (hasTrustLine) {
+      const bAssetBalance = await execution.getAssetBalance(assetToBuy.code);
+      if (bAssetBalance > 10) {
+        console.log("Asset is already on the account", bAssetBalance)
+        return true;
+      }
     }
 
     const assetPrice = await execution.getAssetPrice(assetToBuy);
@@ -44,7 +47,7 @@ export default class Trader {
     const amount = ((quoteAssetBalance * 0.4) / assetPrice).toFixed(7)
     console.log("amount", amount)
 
-    if (!(await this.hasTrustLine(account, assetToBuy))) {
+    if (!hasTrustLine) {
       console.log(`Adding trustline for asset: ${assetToBuy.code}`);
       await this.addTrustLine(assetToBuy, "100000000");
     }
@@ -136,7 +139,7 @@ export default class Trader {
 
         if (assetNewBalance == 0) {
           await this.addTrustLine(assetToSell, "0");
-          await tradeHelper.saveBalances(assetToSell.code, assetToSell.issuer,"remove")
+          await tradeHelper.saveBalances(assetToSell.code, assetToSell.issuer, "remove")
 
           console.log('Asset Removed', assetToSell);
 

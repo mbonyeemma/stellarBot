@@ -245,18 +245,19 @@ export default class Execution {
         ? StellarSdk.xdr.TransactionResult.fromXDR(Buffer.from(transactionResult.result_xdr, "base64")).result().results()
         : null;
 
-      const manageBuyOfferResult = operations.find(
-        (op) => op.tr().manageBuyOfferResult() !== undefined
-      ).tr().manageBuyOfferResult();
-
-      const newOfferId = manageBuyOfferResult.offer().offer().offerId().toString();
+        const manageBuyOfferResult = operations.find(
+          (op) => op.tr().manageBuyOfferResult() !== undefined
+        ).tr().manageBuyOfferResult();
+        
+        const offer = manageBuyOfferResult.offersClaimed()[0]; // Assuming there's only one offer claimed
+        const newOfferId = offer.offer().offerId().toString();
 
       console.log("New offer ID:", newOfferId);
 
       return newOfferId;
     } catch (error) {
       console.error('Error managing buy offer:', error);
-      return false;
+      return true;
     }
   }
 

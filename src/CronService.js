@@ -27,8 +27,8 @@ export default class CronService {
     try {
 
       console.log("::::Starting BOT service:::POWERED BY===> @mbonyeemma===> ");
-      console.log("use with caution, the decision of this service are non deterministic")
-      console.log("now ready to rock and roll", "all set, starting service in 2 60 seconds")
+      console.log("use with caution, the decisions of this service are non deterministic")
+      console.log("now ready to rock and roll", "all set, starting service in  60 seconds")
       //const bestAssetsJSON = await redisClient.get(redis.bestAssetsKey);
 
       // Run tasks every 30 seconds
@@ -146,7 +146,7 @@ export default class CronService {
           console.log('assetData======>', assetData)
           if (assetData.length > 0 && assetBalance < 1) {
             await this.trader.removeAsset(sellAsset);
-            console.log("Asset to remove is", assetBalance, addedOn, sellAsset)
+            console.log("Asset to remove is", assetBalance, sellAsset)
           } else {
             if (assetBalance < 1) {
               await this.trader.removeAsset(sellAsset);
