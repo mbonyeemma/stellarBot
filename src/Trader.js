@@ -57,6 +57,7 @@ export default class Trader {
     if (result !== false) {
       tradeHelper.saveOrderDetails("buy", result, "XLM", assetToBuy.code, assetPrice, amount, 0);
       console.log("Offer saved to redis", { result, assetToBuy, assetPrice })
+      await tradeHelper.saveBalances(assetToBuy.code, assetToBuy.issuer)
       this.sellAssetForProfit(assetToBuy);
     }
   }
@@ -336,6 +337,7 @@ export default class Trader {
       console.log("profitMarginPercentage", amountChange, priceChange)
       await tradeHelper.updateOrderPrice(offerId, currentPrice)
 
+      /*
       if (priceChange < 0) {
         if (priceChange < (-1 * profit_loss_percentage)) {
           //loss tolerance reached, need to exit now
@@ -355,7 +357,7 @@ export default class Trader {
         }
 
       }
-
+*/
 
       // Assuming calculateSellPrice is a method that calculates the sell price based on some logic
       const sellPrice = this.calculateSellPrice(orderbook, assetBalance, offer.buyPrice);

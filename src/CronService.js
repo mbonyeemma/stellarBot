@@ -150,6 +150,7 @@ export default class CronService {
           } else {
             if (assetBalance < 1) {
               await this.trader.removeAsset(sellAsset);
+            }else{
               tradeHelper.saveBalances(asset, issuer)
             }
           }
