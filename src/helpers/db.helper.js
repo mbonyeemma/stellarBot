@@ -16,7 +16,6 @@ class DbHelper {
       user: process.env.DB_USER,
       password: process.env.DB_PWD,
     }
-    console.log(db)
     return createPool(db);
 
   }

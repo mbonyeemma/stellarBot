@@ -102,7 +102,7 @@ class TradeHelper extends BaseModel {
     async insertAsset(assetCode, assetIssue, assetType = 'basic', status = 'active') {
         const assetDetails = {
             asset_code: assetCode,
-            asset_issue: assetIssue,
+            asset_issuer: assetIssue,
             asset_type: assetType,
             status: status,
             // `added_at` is automatically set to CURRENT_TIMESTAMP by the database, so we don't need to include it here.
@@ -202,15 +202,24 @@ class TradeHelper extends BaseModel {
         }
     }
 
+    async spGetAssetToRemove(asset, issuer) {
+        try {
+            const pairRes = await this.callQuery(`CALL spGetAssetToRemove('${asset}', '${issuer}');`);
+            return pairRes;
+        } catch (error) {
+            return false;
+        }
+    }
+
     async saveBalances(asset, issuer, action) {
         try {
             if (action === 'remove') {
-                const rs = await this.callQuery(`DELETE FROM trading_assets where asset_code = '${asset}' AND asset_issue = '${issuer}'`);
+                const rs = await this.callQuery(`DELETE FROM trading_assets where asset_code = '${asset}' AND asset_issuer = '${issuer}'`);
                 return true;
             } else {
                 const inData = {
                     asset_code: asset,
-                    asset_issue: issuer
+                    asset_issuer: issuer
                 };
                 await this.inserData("trading_assets", inData);
             }

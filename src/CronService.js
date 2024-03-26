@@ -25,38 +25,41 @@ export default class CronService {
 
   startBot = async () => {
     try {
-      await redisClient.del(redis.bestAssetsKey);
-      console.log("Starting service to update best assets...");
+
+      console.log("::::Starting BOT service:::POWERED BY===> @mbonyeemma===> ");
+      console.log("use with caution, the decision of this service are non deterministic")
+      console.log("now ready to rock and roll", "all set, starting service in 2 60 seconds")
       //const bestAssetsJSON = await redisClient.get(redis.bestAssetsKey);
 
       // Run tasks every 30 seconds
       setInterval(async () => {
-        const currentDate = new Date();
-        const currentMinute = currentDate.getMinutes();
-        const currentSecond = currentDate.getSeconds();
-        console.log("currentMinute", currentMinute);
+      console.log("cron is running every 1 mimute")
+      const currentDate = new Date();
+      const currentMinute = currentDate.getMinutes();
+      const currentSecond = currentDate.getSeconds();
+      console.log("currentMinute", currentMinute);
 
-        const settings = await tradeHelper.getSettings();
-        if (settings && settings.status === 'stop') {
-          console.log("Bot is stopped");
-          return;
-        }
+      const settings = await tradeHelper.getSettings();
+      if (settings && settings.status === 'stop') {
+        console.log("Bot is stopped");
+        return;
+      }
 
-        if (settings && settings.status === 'liquidate') {
-          console.log("Bot is in liquidation process");
-          await this.sellAssetOnMarket("");
-          return;
-        }
-
-
-
+      if (settings && settings.status === 'liquidate') {
+        console.log("Bot is in liquidation process");
+        await this.sellAssetOnMarket("");
+        return;
+      }
 
 
 
 
 
-        console.log("Updating assets")
-        await this.updateBestAssets();
+
+
+
+      console.log("Updating assets")
+      await this.updateBestAssets();
 
 
 
@@ -100,20 +103,22 @@ export default class CronService {
 
 
       const balances = await this.execution.getBalances();
-      if (balances.length > 6) {
+
+      if (balances.length > 2) {
+        console.log(`IN SELLING MODE`)
         await this.removeAssets(balances);
         await this.trader.initialAssetSell();
-        console.log(`IN SELLING MODE`)
-        return;
       }
-
-      const bestAssets = await this.assets.getBestAssetsToTrade(3);
-      console.log("BestAssetsToTrade==>", bestAssets)
-      for (const element of bestAssets) {
-        const assetObj = new StellarSdk.Asset(element.code, element.issuer);
-        const asset = await tradeHelper.getSavedAsset(element.code);
-        if (asset.length == 0) {
-          await this.trader.BuyAssets(assetObj);
+      const quoteAssetBalance = await this.execution.getAssetBalance(config.quoteAsset);
+      if (quoteAssetBalance > 20) {
+        const bestAssets = await this.assets.getBestAssetsToTrade(3);
+        console.log("BestAssetsToTrade==>", bestAssets)
+        for (const element of bestAssets) {
+          const assetObj = new StellarSdk.Asset(element.code, element.issuer);
+          const asset = await tradeHelper.getSavedAsset(element.code);
+          if (asset.length == 0) {
+            await this.trader.BuyAssets(assetObj);
+          }
         }
       }
     } catch (error) {
@@ -123,8 +128,10 @@ export default class CronService {
 
   removeAssets = async (balances) => {
     try {
+      console.log("REMOVING UNUSED ASSETS")
       const today = new Date();
       today.setHours(0, 0, 0, 0); // Set time to midnight
+      const nativeBalance = ""
 
       for (const balance of balances) {
         if (balance.asset_type !== 'native') {
@@ -133,19 +140,17 @@ export default class CronService {
           const assetBalance = parseFloat(balance.balance);
 
           console.log("asset", asset, issuer, assetBalance)
-          const assetData = await tradeHelper.GetAsset(asset, issuer);
-          if (assetData.length > 0) {
-            const addedOn = new Date(assetData[0]['added_at']);
-            addedOn.setHours(0, 0, 0, 0); // Set time to midnight
-            const sellAsset = this.execution.createAsset(asset, issuer);
+          const sellAsset = this.execution.createAsset(asset, issuer);
 
-            // Check if addedOn is not today
-            if ((assetData && assetData[0].status === 'remove' || addedOn < today) || (assetBalance>0 && assetBalance<1)) {
+          const assetData = await tradeHelper.spGetAssetToRemove(asset, issuer);
+          console.log('assetData======>', assetData)
+          if (assetData.length > 0 && assetBalance < 1) {
+            await this.trader.removeAsset(sellAsset);
+            console.log("Asset to remove is", assetBalance, addedOn, sellAsset)
+          } else {
+            if (assetBalance < 1) {
               await this.trader.removeAsset(sellAsset);
-            } else {
-              if (assetBalance == 0) {
-                await this.trader.BuyAssets(sellAsset);
-              }
+              tradeHelper.saveBalances(asset, issuer)
             }
           }
         }

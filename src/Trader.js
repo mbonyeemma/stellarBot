@@ -136,6 +136,8 @@ export default class Trader {
 
         if (assetNewBalance == 0) {
           await this.addTrustLine(assetToSell, "0");
+          await tradeHelper.saveBalances(assetToSell.code, assetToSell.issuer,"remove")
+
           console.log('Asset Removed', assetToSell);
 
 
