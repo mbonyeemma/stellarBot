@@ -32,7 +32,7 @@ export default class CronService {
       //const bestAssetsJSON = await redisClient.get(redis.bestAssetsKey);
     
       // Run tasks every 30 seconds
-      setInterval(async () => {
+     // setInterval(async () => {
         console.log("cron is running every 1 mimute")
         const currentDate = new Date();
         const currentMinute = currentDate.getMinutes();
@@ -63,7 +63,7 @@ export default class CronService {
 
 
 
-      }, 60000);  // 30000 milliseconds = 30 seconds
+     // }, 60000);  // 30000 milliseconds = 30 seconds
 
     } catch (error) {
       console.error("REDIS ERROR", error);
@@ -110,6 +110,8 @@ export default class CronService {
         await this.trader.initialAssetSell();
       }
       const quoteAssetBalance = await this.execution.getAssetBalance(config.quoteAsset);
+      console.log("quoteAssetBalance==>", quoteAssetBalance)
+
       if (quoteAssetBalance > 20) {
         const bestAssets = await this.assets.getBestAssetsToTrade(3);
         console.log("BestAssetsToTrade==>", bestAssets)
@@ -143,10 +145,10 @@ export default class CronService {
           const sellAsset = this.execution.createAsset(asset, issuer);
 
           const assetData = await tradeHelper.spGetAssetToRemove(asset, issuer);
-          console.log('assetData======>', assetData)
+          console.log('assetData======>', assetData.length, assetBalance)
           if (assetData.length > 0 && assetBalance < 1) {
-            await this.trader.removeAsset(sellAsset);
             console.log("Asset to remove is", assetBalance, sellAsset)
+            await this.trader.removeAsset(sellAsset);
           } else {
             if (assetBalance < 1) {
               await this.trader.removeAsset(sellAsset);

@@ -121,7 +121,7 @@ export default class Trader {
         let sellResult = false;
         console.log("RM 2 ", assetBalance)
 
-        if (assetBalance > 1) {
+        if (assetBalance > 0) {
           sellResult = await execution.StrictSendTransaction(assetToSell, assetBalance);
           console.log(`Strictr send placed at ${sellPrice}.`, sellResult);
           if (sellResult !== false) {
@@ -222,6 +222,7 @@ export default class Trader {
     } catch (error) {
       console.error("Error in monitorOrders:", error);
     }
+    return true
   }
 
 
